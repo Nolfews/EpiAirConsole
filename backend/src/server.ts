@@ -14,8 +14,18 @@ import { join } from 'path';
 const publicPath = join(__dirname, '..', '..', 'frontend', 'public');
 app.use(express.static(publicPath));
 
+const mobilePublicPath = join(__dirname, '..', '..', 'mobile', 'public');
+app.use(express.static(mobilePublicPath));
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/config.json', (_req, res) => {
+  res.json({
+    serverUrl: process.env.SERVER_URL || '',
+    defaultRoom: process.env.DEFAULT_ROOM || 'test-room',
+  });
 });
 
 const httpServer = createServer(app);
@@ -64,8 +74,10 @@ gameNs.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(port, () => {
-  console.log(`Backend listening on http://localhost:${port}`);
+const host = process.env.HOST || '0.0.0.0';
+
+httpServer.listen(port, host, () => {
+  console.log(`Backend listening on http://${host}:${port}`);
 });
 
 export { app, io };
