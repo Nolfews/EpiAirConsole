@@ -1,4 +1,12 @@
 {
+  "scripts": {
+    "backend:build": "cd backend && npm run build",
+    "backend:start": "cd backend && npm run start",
+    "backend:dev": "cd backend && npm run dev"
+  ,
+  "socket:frontend": "node frontend/scripts/runSocket.js",
+  "socket:mobile": "node mobile/scripts/runSocket.js"
+  },
   "dependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
@@ -20,6 +28,7 @@
     "phaser": "^3.90.0",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.44.0"
+  "typescript-eslint": "^8.44.0",
+  "ts-node-dev": "^2.0.0"
   }
 }
