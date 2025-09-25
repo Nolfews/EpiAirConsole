@@ -32,28 +32,73 @@ EpiAirConsole is inspired by the AirConsole platform, which allows users to play
 
 ## How to Run the Project
 
-### Development Mode (recommended for debugging)
+### Recommended (run from repository root)
+
+This repo uses a single shared `node_modules` at the root. For quick development and testing you can run the backend and the test socket clients from the repo root:
+
+- Start backend in dev (auto-reload):
+```bash
+npm run backend:dev
+```
+
+- Start a test frontend socket client (local test runner):
+```bash
+npm run socket:frontend
+```
+
+- Start a test mobile socket client (local test runner):
+```bash
+npm run socket:mobile
+```
+
+Open the frontend test page at http://localhost:3000/ (served by the backend) to exercise socket flows.
+
+### Alternative: run each part from its folder
+
+If you prefer to run parts independently (build/start from each subfolder) you can still do so:
+
 1. **Start the backend server:**
-	```bash
-	cd backend
-	npm run build   # or npm run dev if available
-	npm start
-	```
+```bash
+cd backend
+npm run build   # or npm run dev if available
+npm start
+```
+
 2. **Start the frontend:**
-	```bash
-	cd ../frontend
-	npm run build   # or npm run dev if available
-	npm start
-	```
+```bash
+cd ../frontend
+npm run build   # or npm run dev if available
+npm start
+```
+
 3. **Start the mobile client:**
-	```bash
-	cd ../mobile
-	npm run build   # or npm run dev if available
-	npm start
-	```
+```bash
+cd ../mobile
+npm run build   # or npm run dev if available
+npm start
+```
+
 4. **Add and run games:**
-	- Each game should be placed in a subfolder of `games/` and built with Phaser.js and TypeScript.
-	- Build and run games as needed (see each game's README for details).
+- Each game should be placed in a subfolder of `games/` and built with Phaser.js and TypeScript.
+- Build and run games as needed (see each game's README for details).
+
+## Backend server
+
+Run the backend from the repository root (this project uses a single node_modules at the root):
+
+- Dev (auto-reload):
+```bash
+npm run backend:dev
+```
+- Build:
+```bash
+npm run backend:build
+```
+- Start built version:
+```bash
+npm run backend:start
+```
+The backend listens on PORT (default 3000) and exposes a /health route.
 
 ## Notes
 - All commands should be run from the respective folders in development mode.
