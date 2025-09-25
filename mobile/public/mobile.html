@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mobile Control</title>
+    <link rel="stylesheet" href="./mobile.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Mobile Control</h1>
+
+      <label for="serverUrl">Server URL (leave empty to use this host)</label>
+      <input id="serverUrl" placeholder="https://example.com or http://192.168.1.5:3000" />
+
+      <label for="room">Room</label>
+      <input id="room" value="test-room" />
+
+      <button id="connectBtn">Connect</button>
+
+      <div id="status" aria-live="polite">Disconnected</div>
+
+      <div class="controls">
+        <button id="sendBtn" disabled>Send Message</button>
+      </div>
+
+      <div id="log" class="log" aria-live="polite"></div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./mobileClient.js"></script>
+  </body>
+</html>
