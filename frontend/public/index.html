@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SocketIO Front Test</title>
+  </head>
+  <body>
+    <h1>Front Test</h1>
+    <button id="sendBtn">Click me</button>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io('/game');
+      const room = 'test-room';
+
+      socket.on('connect', () => {
+        console.log('Browser connected', socket.id);
+        socket.emit('join', room, (ack) => console.log('joined', ack));
+      });
+
+      document.getElementById('sendBtn').addEventListener('click', () => {
+        socket.emit('button_clicked', { room, ts: Date.now() });
+        console.log('button clicked emitted');
+      });
+    </script>
+  </body>
+</html>
