@@ -71,13 +71,6 @@ npm run build   # or npm run dev if available
 npm start
 ```
 
-3. **Start the mobile client:**
-```bash
-cd ../mobile
-npm run build   # or npm run dev if available
-npm start
-```
-
 4. **Add and run games:**
 - Each game should be placed in a subfolder of `games/` and built with Phaser.js and TypeScript.
 - Build and run games as needed (see each game's README for details).
@@ -99,6 +92,55 @@ npm run backend:build
 npm run backend:start
 ```
 The backend listens on PORT (default 3000) and exposes a /health route.
+
+## Mobile quick start — connect with your phone
+
+Depending on your workflow, these steps show how to always use a public/local URL (useful if you want to force the same URL even when on the LAN).
+
+1. Copy the example `.env` and edit it (in `backend/`):
+
+	```bash
+	cp backend/.env.example backend/.env
+	# then edit backend/.env and set SERVER_URL
+	```
+
+	- To force using a LAN IP (recommended if your phone is on the same network):
+	  ```
+	  SERVER_URL=http://<YOUR_LAN_IP>:3000
+	  ```
+	- Or to expose via ngrok (cross-network / HTTPS access):
+	  ```
+	  SERVER_URL=https://abcd-1234.ngrok.io
+	  ```
+
+2. Restart the backend to apply the changes:
+
+	```bash
+	npm run backend:dev
+	```
+
+3. Check that the backend exposes the configuration (it should show a non-empty `serverUrl` if you set SERVER_URL):
+
+	```bash
+	curl -sS http://127.0.0.1:3000/config.json
+	# -> {"serverUrl":"http://<YOUR_LAN_IP>:3000","defaultRoom":"test-room"}
+	```
+
+4. Open the mobile page on your phone (on the same network):
+
+	- URL: `http://<YOUR_LAN_IP>:3000/mobile.html`
+	- The "Server URL" field will be prefilled and disabled if `SERVER_URL` is set.
+	- Click "Connect" then "Send Message" to send a message to the backend.
+
+5. Verify reception on the backend
+
+	- Look at the terminal where `npm run backend:dev` is running — you should see socket connection logs and received events (join, message, etc.).
+
+Security notes
+
+- Never commit `backend/.env` (the repo contains `backend/.env.example` only).
+- Use ngrok or HTTPS for cross-network tests to avoid mixed-content issues in mobile browsers.
+
 
 ## Notes
 - All commands should be run from the respective folders in development mode.
