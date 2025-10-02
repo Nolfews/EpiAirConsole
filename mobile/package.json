@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "build:scss": "sass --no-source-map scss/mobile.scss public/mobile.css --style=compressed",
+    "watch:scss": "sass --no-source-map --watch scss/mobile.scss:public/mobile.css --style=expanded",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
