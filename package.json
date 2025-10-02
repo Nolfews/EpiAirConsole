@@ -2,10 +2,13 @@
   "scripts": {
     "backend:build": "cd backend && npm run build",
     "backend:start": "cd backend && npm run start",
-    "backend:dev": "cd backend && npm run dev"
-  ,
-  "socket:frontend": "node frontend/scripts/runSocket.js",
-  "socket:mobile": "node mobile/scripts/runSocket.js"
+    "backend:dev": "cd backend && npm run dev",
+    "socket:frontend": "node frontend/scripts/runSocket.js",
+    "socket:mobile": "node mobile/scripts/runSocket.js",
+    "build:mobile:scss": "sass --no-source-map mobile/scss/mobile.scss mobile/public/mobile.css --style=compressed",
+    "watch:mobile:scss": "sass --no-source-map --watch mobile/scss/mobile.scss:mobile/public/mobile.css --style=expanded",
+    "build:frontend:scss": "sass --no-source-map frontend/scss/frontend.scss frontend/public/frontend.css --style=compressed",
+    "watch:frontend:scss": "sass --no-source-map --watch frontend/scss/frontend.scss:frontend/public/frontend.css --style=expanded"
   },
   "dependencies": {
     "@types/express": "^5.0.3",
