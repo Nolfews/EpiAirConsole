@@ -11,11 +11,28 @@ const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.use(express.json());
 
 import { join } from 'path';
+
+const frontendPagesPath = join(__dirname, '..', '..', 'frontend', 'src', 'pages');
+app.get('/', (_req, res) => {
+  res.sendFile(join(frontendPagesPath, 'homepage.html'));
+});
+
+const frontendSrcPath = join(__dirname, '..', '..', 'frontend', 'src');
+app.use('/src', express.static(frontendSrcPath));
+
 const publicPath = join(__dirname, '..', '..', 'frontend', 'public');
 app.use(express.static(publicPath));
 
 const mobilePublicPath = join(__dirname, '..', '..', 'mobile', 'public');
 app.use(express.static(mobilePublicPath));
+
+app.get('/signup.html', (_req, res) => {
+  res.sendFile(join(frontendPagesPath, 'signup.html'));
+});
+
+app.get('/signin.html', (_req, res) => {
+  res.sendFile(join(frontendPagesPath, 'signin.html'));
+});
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
