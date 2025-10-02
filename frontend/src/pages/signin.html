@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in</title>
+    <link rel="stylesheet" href="/frontend.css" />
+  </head>
+  <body>
+    <div id="navbar-root"></div>
+    <div class="wrap">
+      <div class="card">
+        <h2>Connect</h2>
+        <p>Sign in form placeholder — implement the form here.</p>
+        <p>Don't have an account? <a class="inline" href="/signup.html">Sign up</a></p>
+      </div>
+    </div>
+
+    <script>
+      (async function(){
+        const resp = await fetch('/src/components/navbar.html');
+        if(!resp.ok)
+            return;
+        const html = await resp.text();
+        const root = document.getElementById('navbar-root');
+        root.innerHTML = html;
+        root.querySelectorAll('button[data-target]').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const target = btn.getAttribute('data-target');
+            window.location.href = target;
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
