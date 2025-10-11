@@ -14,9 +14,9 @@
         <h1>EpiAirConsole</h1>
         <h1>Welcome for a new adventure</h1>
         <p>Control your games from your phone. Sign in to get started.</p>
-        <div>
-          <a id="connectBtn" class="btn" href="/signup.html">Sign up</a>
-        </div>
+          <div id="heroActions">
+            <a id="connectBtn" class="btn" href="/signup.html">Sign up</a>
+          </div>
       </section>
     </main>
 
@@ -42,6 +42,16 @@
           window.location.href = '/signup.html';
         }
       });
+
+        const token = localStorage.getItem('token');
+        if (token) {
+            const heroActions = document.getElementById('heroActions');
+            if (heroActions) {
+                heroActions.innerHTML = '<button id="createRoomBtn" class="btn">Create room</button>';
+                document.getElementById('heroTitle').textContent = 'Bienvenue';
+                document.getElementById('heroText').textContent = 'Vous êtes connecté.';
+            }
+        }
     </script>
   </body>
 </html>
