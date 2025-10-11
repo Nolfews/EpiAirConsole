@@ -92,6 +92,16 @@ gameNs.on('connection', (socket) => {
 });
 
 const host = process.env.HOST || '0.0.0.0';
+import { initDb } from './db';
+import authRouter from './auth';
+
+initDb().then(() => {
+  console.log('Database initialized');
+}).catch(err => {
+  console.error('Database init error', err);
+});
+
+app.use('/api/auth', authRouter);
 
 httpServer.listen(port, host, () => {
   console.log(`Backend listening on http://${host}:${port}`);
