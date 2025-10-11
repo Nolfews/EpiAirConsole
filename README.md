@@ -147,3 +147,50 @@ Security notes
 - Make sure to use Node.js v18+ and npm v9+ for best compatibility.
 - For development, you can use `npm run dev` if available in each part.
 - Docker instructions will be added soon for unified launch.
+
+## Quick Postgres (Docker) — local development
+
+If you prefer to run a local Postgres in Docker (recommended to avoid touching the system DB), here's a small set of commands and notes you can copy-paste.
+
+1) Start a Postgres container (use host port 5433 if your system Postgres uses 5432):
+
+```bash
+# remove any previous container with the same name (optional)
+docker rm -f epi-postgres || true
+
+# start postgres mapped to host port 5433
+docker run --name epi-postgres \
+	-e POSTGRES_USER=epiuser \
+	-e POSTGRES_PASSWORD=secret \
+	-e POSTGRES_DB=epiairconsole \
+	-p 5433:5432 -d postgres:15
+```
+
+2) Update `backend/.env` to point to the Docker instance (example):
+
+```
+DB_HOST=127.0.0.1
+DB_PORT=5433
+DB_USER=epiuser
+DB_PASSWORD=secret
+DB_NAME=epiairconsole
+JWT_SECRET=un-secret-long
+```
+
+3) Restart the backend (it will auto-create the `users` table on first run):
+
+```bash
+npm run backend:dev
+```
+
+4) Verify connectivity and tables (from host):
+
+```bash
+# list tables
+PGPASSWORD=secret psql -h 127.0.0.1 -p 5433 -U epiuser -d epiairconsole -c "\dt"
+```
+
+Notes
+- If port 5432 is free on your machine, you can map to `-p 5432:5432` instead.
+- If you see `Ident authentication failed` when connecting to a system Postgres, prefer the Docker option or adjust your system `pg_hba.conf`.
+
