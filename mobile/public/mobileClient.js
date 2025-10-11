@@ -92,6 +92,4 @@
     log('sent', payload);
   });
 
-  log('Tip: leave Server URL empty to use this host, or paste a public URL like an ngrok address.');
-  log('Tip: keep a local backend/.env (copy .env.example) with SERVER_URL or DEFAULT_ROOM to prefill these fields.');
 })();
