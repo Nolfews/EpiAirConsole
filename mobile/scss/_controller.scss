@@ -1,0 +1,140 @@
+@use "./variables" as *;
+
+$primary-color: #007bff;
+$primary-color-dark: #0056b3;
+$border-color: #ddd;
+$border-radius: 8px;
+$transition-speed: 0.2s;
+
+.container {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.screen {
+  display: none;
+
+  &.active {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pin-input {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+
+  input {
+    width: 3rem;
+    height: 4rem;
+    font-size: 2rem;
+    text-align: center;
+    margin: 0 5px;
+    border: 2px solid $border-color;
+    border-radius: $border-radius;
+    background-color: rgba(255, 255, 255, 0.9);
+    transition: border-color $transition-speed ease;
+
+    &:focus {
+      border-color: $primary-color;
+      outline: none;
+    }
+  }
+}
+
+.device-code-input {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+
+  input {
+    width: 2.5rem;
+    height: 3.5rem;
+    font-size: 1.8rem;
+    text-align: center;
+    margin: 0 5px;
+    border: 2px solid $border-color;
+    border-radius: $border-radius;
+    background-color: rgba(255, 255, 255, 0.9);
+    transition: border-color $transition-speed ease;
+
+    &:focus {
+      border-color: $primary-color;
+      outline: none;
+    }
+  }
+}
+
+.controller {
+  margin-top: 40px;
+}
+
+.controller-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.controller-button {
+  height: 120px;
+  border-radius: 15px;
+  border: none;
+  background-color: $primary-color;
+  color: white;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color $transition-speed, transform $transition-speed;
+
+  &:active {
+    background-color: $primary-color-dark;
+    transform: scale(0.98);
+  }
+
+  &.fullwidth {
+    grid-column: 1 / -1;
+  }
+}
+
+.status {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: $border-radius;
+  text-align: center;
+  font-size: 0.9rem;
+  min-height: 20px;
+
+  &.error {
+    background-color: rgba(255, 68, 68, 0.2);
+    color: #ff4444;
+  }
+
+  &.success {
+    background-color: rgba(0, 204, 102, 0.2);
+    color: #00cc66;
+  }
+
+  &.info {
+    background-color: rgba(0, 149, 255, 0.2);
+    color: #0095ff;
+  }
+}
+
+.log {
+  margin-top: 30px;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #bcd9e3;
+  max-height: 150px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
