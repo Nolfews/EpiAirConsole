@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -43,13 +43,115 @@
         }
       });
 
+      function showJoinRoomDialog() {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+          <div class="modal-content">
+            <h3>Join a Room</h3>
+            <p>Enter the 4-digit PIN code of the room</p>
+            <div class="pin-input-container">
+              <input type="text" maxlength="1" pattern="[0-9]" class="pin-digit" required />
+              <input type="text" maxlength="1" pattern="[0-9]" class="pin-digit" required />
+              <input type="text" maxlength="1" pattern="[0-9]" class="pin-digit" required />
+              <input type="text" maxlength="1" pattern="[0-9]" class="pin-digit" required />
+            </div>
+            <div class="error-message"></div>
+            <div class="modal-buttons">
+              <button id="cancelJoinBtn" class="btn secondary-btn">Cancel</button>
+              <button id="confirmJoinBtn" class="btn primary-btn" disabled>Join</button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const firstInput = modal.querySelector('input');
+        if (firstInput) firstInput.focus();
+
+        const inputs = modal.querySelectorAll('.pin-digit');
+        inputs.forEach((input, index) => {
+          input.addEventListener('keyup', (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+              if (index < inputs.length - 1) {
+                inputs[index + 1].focus();
+              }
+            }
+            else if (e.key === 'Backspace') {
+              if (index > 0 && input.value === '') {
+                inputs[index - 1].focus();
+              }
+            }
+
+            const allFilled = Array.from(inputs).every(input => input.value.length === 1);
+            document.getElementById('confirmJoinBtn').disabled = !allFilled;
+          });
+        });
+
+        document.getElementById('cancelJoinBtn').addEventListener('click', () => {
+          document.body.removeChild(modal);
+        });
+
+        document.getElementById('confirmJoinBtn').addEventListener('click', () => {
+          const pin = Array.from(inputs).map(input => input.value).join('');
+          if (pin.length === 4 && /^\d{4}$/.test(pin)) {
+            window.location.href = `/room.html?pin=${pin}`;
+          } else {
+            const errorMsg = modal.querySelector('.error-message');
+            errorMsg.textContent = 'Please enter a valid PIN code (4 digits)';
+          }
+        });
+      }
+
         const token = localStorage.getItem('token');
         if (token) {
+            function parseJwt(token) {
+                try {
+                    const base64Url = token.split('.')[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(
+                        atob(base64)
+                            .split('')
+                            .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                            .join('')
+                    );
+                    return JSON.parse(jsonPayload);
+                } catch (e) {
+                    console.error("Error parsing JWT", e);
+                    return {};
+                }
+            }
+
+            const userData = parseJwt(token);
+            const username = userData.username || "User";
+
+            const hero = document.querySelector('.hero');
+            const welcomeMsg = document.createElement('div');
+            welcomeMsg.className = 'welcome-message';
+            welcomeMsg.innerHTML = `<p>Welcome, <span class="username">${username}</span>!</p>`;
+            hero.insertBefore(welcomeMsg, hero.querySelector('p'));
+
             const heroActions = document.getElementById('heroActions');
             if (heroActions) {
-                heroActions.innerHTML = '<button id="createRoomBtn" class="btn">Create room</button>';
-                document.getElementById('heroTitle').textContent = 'Bienvenue';
-                document.getElementById('heroText').textContent = 'Vous êtes connecté.';
+                heroActions.innerHTML = `
+                    <button id="createRoomBtn" class="btn primary-btn">Create Room</button>
+                    <button id="joinRoomBtn" class="btn secondary-btn">Join Room</button>
+                `;
+                setTimeout(() => {
+                    const createRoomBtn = document.getElementById('createRoomBtn');
+                    if (createRoomBtn) {
+                        createRoomBtn.addEventListener('click', () => {
+                            window.location.href = '/room.html';
+                        });
+                    }
+
+                    const joinRoomBtn = document.getElementById('joinRoomBtn');
+                    if (joinRoomBtn) {
+                        joinRoomBtn.addEventListener('click', () => {
+                            showJoinRoomDialog();
+                        });
+                    }
+                }, 100);
             }
         }
     </script>
