@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,15 +8,24 @@
   </head>
   <body>
     <div id="navbar-root"></div>
-    <div class="wrap">
-      <div class="card">
-        <h2>Sign in</h2>
-        <form id="signinForm">
-          <label>Username or email<br><input name="username" required /></label><br>
-          <label>Password<br><input name="password" type="password" required /></label><br>
-          <button type="submit" class="btn">Sign in</button>
+    <div class="auth-container">
+      <div class="auth-card">
+        <h2>Sign In to EpiAirConsole</h2>
+        <div id="authError" class="auth-error">Invalid username or password</div>
+        <form id="signinForm" class="auth-form">
+          <div class="form-group">
+            <label for="username">Username or Email</label>
+            <input id="username" name="username" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" />
+          </div>
+          <button type="submit" class="auth-btn">Sign In</button>
         </form>
-        <p>Don't have an account? <a class="inline" href="/signup.html">Sign up</a></p>
+        <div class="auth-footer">
+          <p>Don't have an account? <a href="/signup.html">Create Account</a></p>
+        </div>
       </div>
     </div>
 
@@ -36,18 +45,47 @@
         });
 
         const form = document.getElementById('signinForm');
+        const errorElement = document.getElementById('authError');
+
         form?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const fd = new FormData(form);
-            const body = {};
-            fd.forEach((v, k) => body[k] = v);
-            const res = await fetch('/api/auth/signin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-            const j = await res.json();
-            if (res.ok && j.token) {
-                localStorage.setItem('token', j.token);
-                window.location.href = '/';
-            } else {
-                alert(j.error || 'Signin failed');
+
+            errorElement.classList.remove('visible');
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing in...';
+
+            try {
+                const fd = new FormData(form);
+                const body = {};
+                fd.forEach((v, k) => body[k] = v);
+
+                const res = await fetch('/api/auth/signin', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const j = await res.json();
+
+                if (res.ok && j.token) {
+                    localStorage.setItem('token', j.token);
+                    window.location.href = '/';
+                } else {
+                    errorElement.textContent = j.error || 'Sign in failed. Please check your credentials.';
+                    errorElement.classList.add('visible');
+
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            } catch (error) {
+                errorElement.textContent = 'Connection error. Please try again later.';
+                errorElement.classList.add('visible');
+
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
             }
         });
       })();
