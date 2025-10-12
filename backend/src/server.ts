@@ -34,14 +34,47 @@ app.get('/signin.html', (_req, res) => {
   res.sendFile(join(frontendPagesPath, 'signin.html'));
 });
 
+app.get('/room.html', (_req, res) => {
+  res.sendFile(join(frontendPagesPath, 'room.html'));
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/config.json', (_req, res) => {
+import { networkInterfaces } from 'os';
+
+function getServerIPs() {
+  const interfaces = networkInterfaces();
+  const addresses = [];
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (!iface.internal && iface.family === 'IPv4') {
+        addresses.push(iface.address);
+      }
+    }
+  }
+  return addresses;
+}
+
+app.get('/config.json', (req, res) => {
+  if (process.env.SERVER_URL) {
+    return res.json({
+      serverUrl: process.env.SERVER_URL,
+      defaultRoom: process.env.DEFAULT_ROOM || 'test-room',
+    });
+  }
+
+  const protocol = req.headers['x-forwarded-proto'] || 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${port}`;
+  const detectedUrl = `${protocol}://${host}`;
+  const ipAddresses = getServerIPs();
+
   res.json({
-    serverUrl: process.env.SERVER_URL || '',
+    serverUrl: detectedUrl,
     defaultRoom: process.env.DEFAULT_ROOM || 'test-room',
+    availableUrls: ipAddresses.map(ip => `http://${ip}:${port}`),
   });
 });
 
@@ -54,11 +87,116 @@ const io = new IOServer(httpServer, {
   }
 });
 
+import * as roomManager from './rooms';
+
 const gameNs = io.of('/game');
+const mobileNs = io.of('/mobile');
 
 gameNs.on('connection', (socket) => {
-  console.log('Socket connected to /game namespace:', socket.id);
+  console.log('Frontend connected to /game namespace:', socket.id);
 
+  socket.on('create_room', (options: { name?: string, maxPlayers?: number } = {}, cb?: (room: any) => void) => {
+    const { name, maxPlayers } = options;
+    const room = roomManager.createRoom(socket.id, name, maxPlayers);
+
+    socket.join(room.id);
+
+    const player = roomManager.addPlayerToRoom(room.id, socket.id);
+
+    let username = `Player ${player?.playerNumber || 1}`;
+    if (socket.handshake.query && socket.handshake.query.token) {
+      try {
+        const token = socket.handshake.query.token as string;
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        if (payload && payload.username) {
+          username = payload.username;
+        }
+      } catch (err) {
+        console.error('Error parsing token:', err);
+      }
+    }
+
+    const allPlayers = room.players.map(p => ({
+      id: p.id,
+      playerNumber: p.playerNumber,
+      deviceCode: p.deviceCode,
+      isConnected: p.mobileId !== null,
+      isCurrentPlayer: p.id === socket.id,
+      username: username
+    }));
+
+    if (cb) {
+      cb({
+        roomId: room.id,
+        pin: room.pin,
+        name: room.name,
+        deviceCode: player?.deviceCode,
+        playerNumber: player?.playerNumber,
+        allPlayers: allPlayers
+      });
+    }
+
+    console.log(`Room created: ${room.id}, PIN: ${room.pin}`);
+  });
+
+  socket.on('join_room_by_pin', (pin: string, cb?: (result: any) => void) => {
+    const room = roomManager.findRoomByPin(pin);
+
+    if (!room) {
+      if (cb) cb({ success: false, error: 'Room not found' });
+      return;
+    }
+
+    const player = roomManager.addPlayerToRoom(room.id, socket.id);
+
+    if (!player) {
+      if (cb) cb({ success: false, error: 'Room is full' });
+      return;
+    }
+
+    socket.join(room.id);
+
+    let username = `Player ${player.playerNumber}`;
+    if (socket.handshake.query && socket.handshake.query.token) {
+      try {
+        const token = socket.handshake.query.token as string;
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        if (payload && payload.username) {
+          username = payload.username;
+        }
+      } catch (err) {
+        console.error('Error parsing token:', err);
+      }
+    }
+
+    const allPlayers = room.players.map(p => ({
+      id: p.id,
+      playerNumber: p.playerNumber,
+      deviceCode: p.deviceCode,
+      isConnected: p.mobileId !== null,
+      isCurrentPlayer: p.id === socket.id,
+      username: p.id === socket.id ? username : `Player ${p.playerNumber}`
+    }));
+
+    gameNs.to(room.id).emit('room_players_updated', {
+      roomId: room.id,
+      roomName: room.name,
+      players: allPlayers,
+      newPlayerId: socket.id,
+      newPlayerNumber: player.playerNumber
+    });
+
+    if (cb) {
+      cb({
+        success: true,
+        roomId: room.id,
+        name: room.name,
+        deviceCode: player.deviceCode,
+        playerNumber: player.playerNumber,
+        allPlayers: allPlayers
+      });
+    }
+  });
   socket.on('join', (room: string, cb?: (ack: any) => void) => {
     socket.join(room);
     const ack = { ok: true, room };
@@ -87,7 +225,127 @@ gameNs.on('connection', (socket) => {
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('Socket disconnected', socket.id, reason);
+    console.log('Frontend disconnected', socket.id, reason);
+
+    const playerRooms = roomManager.getActiveRooms().filter(room =>
+      room.players.some(player => player.id === socket.id)
+    );
+
+    roomManager.handleDisconnect(socket.id);
+
+    playerRooms.forEach(room => {
+      const updatedRoom = roomManager.getRoomInfo(room.id);
+      if (updatedRoom) {
+        const remainingPlayers = updatedRoom.players.map(p => ({
+          id: p.id,
+          playerNumber: p.playerNumber,
+          deviceCode: p.deviceCode,
+          isConnected: p.mobileId !== null,
+          isCurrentPlayer: false,
+          username: `Player ${p.playerNumber}`
+        }));
+
+        gameNs.to(room.id).emit('room_players_updated', {
+          roomId: room.id,
+          roomName: room.name,
+          players: remainingPlayers,
+          playerDisconnected: socket.id
+        });
+      }
+    });
+  });
+});
+
+mobileNs.on('connection', (socket) => {
+  console.log('Mobile connected to /mobile namespace:', socket.id);
+
+  socket.on('join_room_by_pin', (pin: string, cb?: (result: any) => void) => {
+    const room = roomManager.findRoomByPin(pin);
+
+    if (!room) {
+      if (cb) cb({ success: false, error: 'Room not found' });
+      return;
+    }
+
+    if (cb) {
+      cb({
+        success: true,
+        roomId: room.id,
+        name: room.name,
+        waitingForDeviceCode: true
+      });
+    }
+  });
+
+  socket.on('pair_with_player', (data: { roomPin: string, deviceCode: string }, cb?: (result: any) => void) => {
+    const room = roomManager.findRoomByPin(data.roomPin);
+
+    if (!room) {
+      if (cb) cb({ success: false, error: 'Room not found' });
+      return;
+    }
+
+    const result = roomManager.connectMobileToPlayer(data.deviceCode, socket.id);
+
+    if (!result) {
+      if (cb) cb({ success: false, error: 'Invalid device code or player not found' });
+      return;
+    }
+
+    socket.join(result.room.id);
+
+    const allPlayers = result.room.players.map(p => ({
+      id: p.id,
+      playerNumber: p.playerNumber,
+      deviceCode: p.deviceCode,
+      isConnected: p.mobileId !== null,
+      isCurrentPlayer: false,
+      username: `Player ${p.playerNumber}`
+    }));
+
+    gameNs.to(result.room.id).emit('room_players_updated', {
+      roomId: result.room.id,
+      roomName: result.room.name,
+      players: allPlayers,
+      controllerConnected: {
+        playerNumber: result.player.playerNumber,
+        mobileId: socket.id
+      }
+    });
+
+    gameNs.to(result.player.id).emit('controller_connected', {
+      playerNumber: result.player.playerNumber,
+      mobileId: socket.id
+    });
+
+    if (cb) {
+      cb({
+        success: true,
+        roomId: result.room.id,
+        playerNumber: result.player.playerNumber
+      });
+    }
+  });
+
+  socket.on('controller_input', (data: any) => {
+    const rooms = roomManager.getActiveRooms();
+
+    for (const room of rooms) {
+      const player = room.players.find(p => p.mobileId === socket.id);
+      if (player) {
+        gameNs.to(player.id).emit('controller_input', {
+          from: socket.id,
+          playerNumber: player.playerNumber,
+          data
+        });
+        break;
+      }
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('Mobile disconnected', socket.id, reason);
+    roomManager.handleDisconnect(socket.id);
   });
 });
 
