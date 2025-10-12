@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,18 +8,36 @@
   </head>
   <body>
     <div id="navbar-root"></div>
-    <div class="wrap">
-      <div class="card">
-        <h2>Create a new account</h2>
-        <form id="signupForm">
-          <label>First Name<br><input name="firstName" /></label><br>
-          <label>Last Name<br><input name="lastName" /></label><br>
-          <label>Username<br><input name="username" required /></label><br>
-          <label>Email<br><input name="email" type="email" required /></label><br>
-          <label>Password<br><input name="password" type="password" required /></label><br>
-          <button type="submit" class="btn">Sign up</button>
+    <div class="auth-container">
+      <div class="auth-card">
+        <h2>Create a New Account</h2>
+        <div id="authError" class="auth-error">Error message will appear here</div>
+        <form id="signupForm" class="auth-form">
+          <div class="form-group">
+            <label for="firstName">First Name</label>
+            <input id="firstName" name="firstName" autocomplete="given-name" />
+          </div>
+          <div class="form-group">
+            <label for="lastName">Last Name</label>
+            <input id="lastName" name="lastName" autocomplete="family-name" />
+          </div>
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input id="username" name="username" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required autocomplete="new-password" />
+          </div>
+          <button type="submit" class="auth-btn">Create Account</button>
         </form>
-        <p>Already have an account? <a class="inline" href="/signin.html">Sign in</a></p>
+        <div class="auth-footer">
+          <p>Already have an account? <a href="/signin.html">Sign In</a></p>
+        </div>
       </div>
     </div>
 
@@ -39,18 +57,55 @@
         });
 
         const form = document.getElementById('signupForm');
+        const errorElement = document.getElementById('authError');
+
         form?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const fd = new FormData(form);
-            const body = {};
-            fd.forEach((v, k) => body[k] = v);
-            const res = await fetch('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-            const j = await res.json();
-            if (res.ok && j.token) {
-                localStorage.setItem('token', j.token);
-                window.location.href = '/';
-            } else {
-                alert(j.error || 'Signup failed');
+
+            errorElement.classList.remove('visible');
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating Account...';
+
+            try {
+                const fd = new FormData(form);
+                const body = {};
+                fd.forEach((v, k) => body[k] = v);
+
+                if (body.password.length < 6) {
+                    errorElement.textContent = 'Password must be at least 6 characters long';
+                    errorElement.classList.add('visible');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
+                const res = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const j = await res.json();
+
+                if (res.ok && j.token) {
+                    localStorage.setItem('token', j.token);
+                    window.location.href = '/';
+                } else {
+                    errorElement.textContent = j.error || 'Could not create account. Please try again.';
+                    errorElement.classList.add('visible');
+
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            } catch (error) {
+                errorElement.textContent = 'Connection error. Please try again later.';
+                errorElement.classList.add('visible');
+
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
             }
         });
       })();
