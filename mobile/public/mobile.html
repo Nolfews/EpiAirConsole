@@ -1,27 +1,65 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mobile Control</title>
+    <title>Mobile Controller</title>
     <link rel="stylesheet" href="./mobile.css" />
   </head>
   <body>
     <main class="container">
-      <h1>Mobile Control</h1>
+      <div id="configScreen" class="screen active">
+        <h1>Configuration</h1>
 
-      <label for="serverUrl">Server URL (leave empty to use this host)</label>
-      <input id="serverUrl" placeholder="https://example.com or http://192.168.1.5:3000" />
+        <label for="serverUrl">Server URL (leave empty to use this host)</label>
+        <input id="serverUrl" placeholder="https://example.com or http://192.168.1.5:3000" />
 
-      <label for="room">Room</label>
-      <input id="room" value="test-room" />
+        <button id="continueBtn" class="btn btn-primary">Continue</button>
+      </div>
+      <div id="pinScreen" class="screen">
+        <h1>Join a Room</h1>
+        <p>Enter the 4-digit PIN code of the room</p>
 
-      <button id="connectBtn">Connect</button>
+        <div class="pin-input">
+          <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" id="pin1" />
+          <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" id="pin2" />
+          <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" id="pin3" />
+          <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" id="pin4" />
+        </div>
 
-      <div id="status" aria-live="polite">Disconnected</div>
+        <button id="connectBtn" class="btn btn-primary" disabled>Connect</button>
+        <div id="pinStatus" class="status"></div>
+      </div>
 
-      <div class="controls">
-        <button id="sendBtn" disabled>Send Message</button>
+      <div id="deviceCodeScreen" class="screen">
+        <h1>Player Association</h1>
+        <p>Enter the 3-digit code displayed on your screen</p>
+
+        <div class="device-code-input">
+          <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" id="code1" />
+          <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" id="code2" />
+          <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" id="code3" />
+        </div>
+
+        <button id="pairBtn" class="btn btn-primary" disabled>Pair</button>
+        <div id="deviceStatus" class="status"></div>
+      </div>
+
+      <div id="controllerScreen" class="screen">
+        <h1>Game Controller</h1>
+        <p id="playerInfo">Player X</p>
+
+        <div class="controller">
+          <div class="controller-grid">
+            <button class="controller-button" data-action="up">↑</button>
+            <button class="controller-button" data-action="right">→</button>
+            <button class="controller-button" data-action="left">←</button>
+            <button class="controller-button" data-action="down">↓</button>
+            <button class="controller-button fullwidth" data-action="action">Action</button>
+          </div>
+        </div>
+
+        <div id="controllerStatus" class="status"></div>
       </div>
 
       <div id="log" class="log" aria-live="polite"></div>
