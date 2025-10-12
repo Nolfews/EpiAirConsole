@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Game Room</title>
+    <link rel="stylesheet" href="/frontend.css" />
+  </head>
+  <body>
+    <div id="navbar-root"></div>
+
+    <main class="game-room">
+      <div class="room-header">
+        <h1 id="roomTitle">Game Room</h1>
+        <p class="room-info">En attente des joueurs pour commencer la partie</p>
+      </div>
+      <div class="pin-display">
+        <h2>Room PIN Code</h2>
+        <div class="pin-code" id="roomPin">----</div>
+        <p>Share this code with players so they can join the game</p>
+      </div>
+
+      <div class="instructions">
+        <h3>How to play:</h3>
+        <ol>
+          <li>Share the PIN code above with other players</li>
+          <li>Each player must connect from their mobile device using this code</li>
+          <li>Once connected, players must enter their 3-digit association code (displayed on the cards below)</li>
+          <li>The game will start automatically once all players are connected</li>
+        </ol>
+      </div>
+
+      <div class="device-codes" id="playersContainer">
+      </div>
+
+      <div class="game-container" id="gameContainer">
+        <p>Waiting for all players to connect...</p>
+        <p>The game will start automatically</p>
+      </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      (async function(){
+        const resp = await fetch('/src/components/navbar.html');
+        if(!resp.ok)
+          return;
+        const html = await resp.text();
+        const root = document.getElementById('navbar-root');
+        root.innerHTML = html;
+        root.querySelectorAll('button[data-target]').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const target = btn.getAttribute('data-target');
+            window.location.href = target;
+          });
+        });
+      })();
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/signin.html?redirect=room.html';
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomPin = urlParams.get('pin');
+
+      const roomPinElement = document.getElementById('roomPin');
+      const playersContainer = document.getElementById('playersContainer');
+      const roomTitleElement = document.getElementById('roomTitle');
+      const gameContainer = document.getElementById('gameContainer');
+
+      let socket;
+      let roomData = null;
+      let players = [];
+
+      function connectSocket() {
+        fetch('/config.json').then(r => r.json()).then(cfg => {
+          try {
+            const serverUrl = cfg.serverUrl || window.location.origin;
+            socket = io(serverUrl + '/game');
+            socket.on('connect', () => {
+              console.log('Connected to socket server:', socket.id);
+
+              if (roomPin) {
+                joinExistingRoom(roomPin);
+              } else {
+                createNewRoom();
+              }
+            });
+            setupSocketEvents();
+          } catch (e) {
+            console.error('Error during socket setup:', e);
+          }
+        }).catch(e => {
+          console.error('Could not load config:', e);
+        });
+      }
+
+      function setupSocketEvents() {
+        socket.on('room_players_updated', (data) => {
+          console.log('Room players updated:', data);
+
+          players = data.players;
+
+          updateAllPlayersList();
+
+          if (data.newPlayerId) {
+            const newPlayer = data.players.find(p => p.id === data.newPlayerId);
+            if (newPlayer) {
+              showNotification(`Player ${newPlayer.playerNumber} joined the room`, 'info');
+            }
+          }
+
+          if (data.controllerConnected) {
+            showNotification(`Controller connected to player ${data.controllerConnected.playerNumber}`, 'success');
+          }
+
+          if (data.playerDisconnected) {
+            showNotification('A player has left the room', 'error');
+          }
+
+          checkAllPlayersConnected();
+
+          updatePlayerCount();
+        });
+
+        socket.on('controller_connected', (data) => {
+          console.log('My controller connected:', data);
+
+          const playerCard = document.querySelector(`.player-card[data-player="${data.playerNumber}"]`);
+          if (playerCard) {
+            const statusElement = playerCard.querySelector('.status');
+
+            statusElement.style.transition = 'all 0.5s ease';
+            statusElement.style.transform = 'scale(1.2)';
+            statusElement.textContent = 'Controller connected';
+            statusElement.classList.remove('not-connected');
+            statusElement.classList.add('connected');
+
+            setTimeout(() => {
+              statusElement.style.transform = 'scale(1)';
+            }, 500);
+
+            checkAllPlayersConnected();
+          }
+        });
+
+        socket.on('player_joined', (data) => {
+          console.log('Player joined (legacy event):', data);
+        });
+
+        socket.on('controller_input', (data) => {
+          console.log('Received controller input:', data);
+        });
+
+        socket.on('disconnect', (reason) => {
+          console.log('Disconnected:', reason);
+          showNotification(`Disconnected from server: ${reason}`, 'error');
+        });
+      }
+
+      function createNewRoom() {
+        socket.emit('create_room', { name: 'Game Room' }, (response) => {
+          console.log('Room created:', response);
+          roomData = response;
+
+          updateRoomUI();
+
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set('pin', roomData.pin);
+          window.history.pushState({}, '', newUrl);
+        });
+      }
+
+      function joinExistingRoom(pin) {
+        socket.emit('join_room_by_pin', pin, (response) => {
+          if (response.success) {
+            console.log('Joined room:', response);
+            roomData = response;
+
+            updateRoomUI();
+          } else {
+            console.error('Failed to join room:', response.error);
+            alert('Erreur: ' + response.error);
+            window.location.href = '/';
+          }
+        });
+      }
+
+      function updateRoomUI() {
+        if (!roomData) return;
+
+        const pin = roomData.pin;
+        roomPinElement.textContent = '';
+
+        let index = 0;
+        const pinInterval = setInterval(() => {
+          if (index < pin.length) {
+            roomPinElement.textContent += pin.charAt(index);
+            index++;
+          } else {
+            clearInterval(pinInterval);
+          }
+        }, 200);
+
+        roomTitleElement.textContent = roomData.name || 'Game Room';
+
+        updateRoomInfoDisplay();
+
+        if (roomData.allPlayers && roomData.allPlayers.length > 0) {
+          players = roomData.allPlayers;
+          updateAllPlayersList();
+        } else {
+          updatePlayersList();
+        }
+      }
+
+      function updateRoomInfoDisplay() {
+        const username = getUsernameFromToken();
+        const hostPlayer = players && players.length > 0 ? players.find(p => p.playerNumber === 1) : null;
+        const hostName = hostPlayer ? hostPlayer.username : username;
+
+        const roomInfo = document.querySelector('.room-info');
+        if (roomInfo) {
+          roomInfo.innerHTML = `Room created by <strong>${hostName}</strong> | <span id="playerCount">${players ? players.length : 1}</span> player(s) connected`;
+        }
+      }
+
+      function updatePlayersList() {
+        if (players && players.length > 0) {
+          updateAllPlayersList();
+        } else if (roomData) {
+          playersContainer.innerHTML = '';
+
+          const playerCard = createPlayerCard({
+            playerNumber: roomData.playerNumber,
+            deviceCode: roomData.deviceCode,
+            isConnected: false,
+            isCurrentPlayer: true,
+            username: getUsernameFromToken()
+          });
+
+          playersContainer.appendChild(playerCard);
+        }
+      }
+
+      function getUsernameFromToken() {
+        try {
+          if (!token) return "Player";
+
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const userData = JSON.parse(jsonPayload);
+          return userData.username || "Player";
+        } catch (e) {
+          console.error("Error parsing JWT", e);
+          return "Player";
+        }
+      }
+
+      function updatePlayerCount() {
+        const playerCountElement = document.getElementById('playerCount');
+        if (playerCountElement && players) {
+          playerCountElement.textContent = players.length.toString();
+        }
+      }
+
+      function createPlayerCard(player) {
+        const playerCard = document.createElement('div');
+        playerCard.className = 'player-card';
+        playerCard.setAttribute('data-player', player.playerNumber);
+
+        if (player.isCurrentPlayer) {
+          playerCard.classList.add('current-player');
+        }
+
+        const playerIcons = ['🎮', '🎯', '🎲', '🎪'];
+        const playerIcon = playerIcons[(player.playerNumber - 1) % playerIcons.length];
+
+        playerCard.innerHTML = `
+          <div class="player-icon">${playerIcon}</div>
+          <div class="player-number">${player.isCurrentPlayer ? 'You' : 'Player'} ${player.playerNumber}</div>
+          <div class="player-username">${player.username}</div>
+          ${player.deviceCode ? `
+            <p>Association code:</p>
+            <div class="device-code">${player.deviceCode}</div>
+          ` : ''}
+          <div class="status ${player.isConnected ? 'connected' : 'not-connected'}">
+            ${player.isConnected ? 'Controller connected' : 'Controller not connected'}
+          </div>
+        `;
+
+        playerCard.style.opacity = '0';
+        playerCard.style.transform = 'scale(0.8)';
+
+        setTimeout(() => {
+          playerCard.style.transition = 'all 0.3s ease';
+          playerCard.style.opacity = '1';
+          playerCard.style.transform = 'scale(1)';
+        }, 50);
+
+        return playerCard;
+      }
+
+      function updateAllPlayersList() {
+        if (!players || players.length === 0) return;
+
+        playersContainer.innerHTML = '';
+
+        const sortedPlayers = [...players].sort((a, b) => a.playerNumber - b.playerNumber);
+
+        sortedPlayers.forEach(player => {
+          if (player.id === socket.id) {
+            player.isCurrentPlayer = true;
+          }
+        });
+
+        sortedPlayers.forEach((player, index) => {
+          const playerCard = createPlayerCard(player);
+          playersContainer.appendChild(playerCard);
+        });
+
+        updateRoomInfoDisplay();
+      }
+
+      function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+          notification.style.transform = 'translateY(0)';
+          notification.style.opacity = '1';
+        }, 10);
+
+        setTimeout(() => {
+          notification.style.transform = 'translateY(-20px)';
+          notification.style.opacity = '0';
+          setTimeout(() => {
+            document.body.removeChild(notification);
+          }, 500);
+        }, 3000);
+      }
+
+      function checkAllPlayersConnected() {
+        if (!players || players.length === 0) return;
+
+        let allConnected = true;
+        let connectedCount = 0;
+
+        players.forEach(player => {
+          if (player.isConnected) {
+            connectedCount++;
+          } else {
+            allConnected = false;
+          }
+        });
+
+        if (allConnected && players.length > 0) {
+          const gameContainer = document.getElementById('gameContainer');
+          if (gameContainer) {
+            gameContainer.innerHTML = `
+              <p>All players are connected!</p>
+              <p>The game will start soon...</p>
+              <button id="startGameBtn" class="room-btn">Start Now</button>
+            `;
+
+            const startGameBtn = document.getElementById('startGameBtn');
+            if (startGameBtn) {
+              startGameBtn.addEventListener('click', () => {
+                gameContainer.innerHTML = '<p>Game in progress...</p>';
+              });
+            }
+          }
+        } else {
+          const gameContainer = document.getElementById('gameContainer');
+          if (gameContainer) {
+            gameContainer.innerHTML = `
+              <p>Waiting for all players to connect...</p>
+              <p>${connectedCount} out of ${players.length} players connected</p>
+            `;
+          }
+        }
+      }
+
+      connectSocket();
+    </script>
+  </body>
+</html>
