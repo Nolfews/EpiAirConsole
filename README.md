@@ -8,7 +8,11 @@ EpiAirConsole is inspired by the AirConsole platform, which allows users to play
 - Mobile web page acts as a controller (gamepad)
 - Real-time communication using Socket.IO
 - Modular game integration with Phaser.js (2D games)
+- Room system with PIN codes for multi-player sessions
+- Player-controller pairing with unique device codes
 - All code written in TypeScript
+
+See [ROOMS.md](ROOMS.md) for details on the room system and controller pairing.
 
 ## Stack Overview
 - **Frontend:** TypeScript, HTML5, SCSS, Socket.IO-client
@@ -95,23 +99,95 @@ The backend listens on PORT (default 3000) and exposes a /health route.
 
 ## Mobile quick start — connect with your phone
 
-Depending on your workflow, these steps show how to always use a public/local URL (useful if you want to force the same URL even when on the LAN).
+The mobile interface now supports automatic URL detection. This allows you to connect from any device without having to modify the `.env` file each time:
 
-1. Copy the example `.env` and edit it (in `backend/`):
+1. **Auto-Detection Mode** (recommended)
 
-	```bash
-	cp backend/.env.example backend/.env
-	# then edit backend/.env and set SERVER_URL
-	```
+   To enable automatic URL detection:
 
-	- To force using a LAN IP (recommended if your phone is on the same network):
-	  ```
-	  SERVER_URL=http://<YOUR_LAN_IP>:3000
-	  ```
-	- Or to expose via ngrok (cross-network / HTTPS access):
-	  ```
-	  SERVER_URL=https://abcd-1234.ngrok.io
-	  ```
+   ```bash
+   cp backend/.env.example backend/.env
+   # Then edit backend/.env and make sure SERVER_URL is commented out or empty
+   ```
+
+   With auto-detection enabled:
+   - The mobile interface will automatically detect all available IP addresses
+   - A dropdown menu will show all possible connection URLs
+   - You can easily switch between local IPs and ngrok URLs without editing files
+   - Connection settings are remembered during your session
+
+2. **Manual Configuration** (alternative)
+
+   If you prefer to force a specific URL:
+
+   ```bash
+   cp backend/.env.example backend/.env
+   # Then edit backend/.env and set SERVER_URL
+   ```
+
+   - To force using a LAN IP (for phones on the same network):
+     ```
+     SERVER_URL=http://<YOUR_LAN_IP>:3000
+     ```
+   - Or to expose via ngrok (for cross-network / HTTPS access):
+     ```
+     SERVER_URL=https://<YOUR-NGROK-SUBDOMAIN>.ngrok-free.dev
+     ```
+
+## Using ngrok for External Access
+
+ngrok allows you to expose your local server to the internet, making it accessible from any device, even those not on your local network.
+
+### Installing ngrok
+
+1. **Download the latest version of ngrok**:
+   ```bash
+   curl -O https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+   tar xvzf ngrok-v3-stable-linux-amd64.tgz
+   ```
+
+2. **Make ngrok executable and move it to a directory in your PATH (optional)**:
+   ```bash
+   chmod +x ngrok
+   sudo mv ngrok /usr/local/bin/   # requires root/sudo access
+   ```
+
+   Alternatively, keep it in your project directory and run it with `./ngrok`
+
+### Setting up ngrok
+
+1. **Sign up for a free account** at [ngrok.com](https://ngrok.com) and get your authtoken
+
+2. **Authenticate your ngrok client**:
+   ```bash
+   ./ngrok authtoken YOUR_AUTHTOKEN
+   ```
+   Replace `YOUR_AUTHTOKEN` with the token from your ngrok dashboard.
+
+### Exposing Your Local Server
+
+1. **Start your backend server**:
+   ```bash
+   npm run backend:dev
+   ```
+
+2. **Start ngrok** (in a new terminal):
+   ```bash
+   ./ngrok http 3000
+   ```
+   This creates a tunnel to your local server running on port 3000.
+
+3. **Note the forwarding URL** in the ngrok output:
+   ```
+   Forwarding    https://<your-subdomain>.ngrok-free.dev -> http://localhost:3000
+   ```
+
+4. **Update your backend/.env file** with this URL:
+   ```
+   SERVER_URL=https://<your-subdomain>.ngrok-free.dev
+   ```
+
+5. **Restart your backend server** to apply the new SERVER_URL.
 
 2. Restart the backend to apply the changes:
 
@@ -136,10 +212,47 @@ Depending on your workflow, these steps show how to always use a public/local UR
 
 	- Look at the terminal where `npm run backend:dev` is running — you should see socket connection logs and received events (join, message, etc.).
 
+### Accessing the Application
+
+1. **From your computer**:
+   - Open `http://localhost:3000` to access the main frontend
+   - Open `http://localhost:3000/mobile.html` to test the mobile interface
+
+2. **From other devices on the same network**:
+   - Use your computer's LAN IP: `http://<YOUR_LAN_IP>:3000`
+   - For the mobile interface: `http://<YOUR_LAN_IP>:3000/mobile.html`
+   To display your computer's LAN IP address, use the following command in a terminal:
+
+   - **Linux/macOS (show only the main LAN IP):**
+      ```bash
+      hostname -I | awk '{print $1}'
+      ```
+      or
+      ```bash
+      ip addr show | awk '/inet / && !/127.0.0.1/ {print $2}' | cut -d/ -f1 | head -n1
+      ```
+
+   - **Windows (show only IPv4 addresses):**
+      ```powershell
+      ipconfig | findstr /R /C:"IPv4"
+      ```
+
+3. **From any device on the internet** (using ngrok):
+   - Use the ngrok URL: `https://<your-subdomain>.ngrok-free.dev`
+   - For the mobile interface: `https://<your-subdomain>.ngrok-free.dev/mobile.html`
+
+### Troubleshooting ngrok
+
+- **"ngrok version too old" error**: Download the latest version as described above
+- **Authentication failures**: Verify your authtoken on the [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken)
+- **Connection issues**: Check if your backend is actually running on port 3000
+- **CORS errors**: Make sure your backend allows requests from the ngrok domain
+
 Security notes
 
 - Never commit `backend/.env` (the repo contains `backend/.env.example` only).
 - Use ngrok or HTTPS for cross-network tests to avoid mixed-content issues in mobile browsers.
+- The free version of ngrok assigns random subdomains each time you restart, so you'll need to update SERVER_URL in your .env file.
 
 
 ## Notes
