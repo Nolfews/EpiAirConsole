@@ -33,6 +33,13 @@
       <div class="device-codes" id="playersContainer">
       </div>
 
+      <div class="game-catalog" id="gameCatalog" style="display: none;">
+        <h3>🎮 Select a Game</h3>
+        <div class="games-grid" id="gamesGrid">
+          <!-- Games will be dynamically loaded here -->
+        </div>
+      </div>
+
       <div class="game-container" id="gameContainer">
         <p>Waiting for all players to connect...</p>
         <p>The game will start automatically</p>
@@ -40,6 +47,7 @@
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/game.js"></script>
     <script>
       (async function(){
         const resp = await fetch('/src/components/navbar.html');
@@ -68,10 +76,65 @@
       const playersContainer = document.getElementById('playersContainer');
       const roomTitleElement = document.getElementById('roomTitle');
       const gameContainer = document.getElementById('gameContainer');
+      const gameCatalog = document.getElementById('gameCatalog');
+      const gamesGrid = document.getElementById('gamesGrid');
 
       let socket;
       let roomData = null;
       let players = [];
+      let gameController = null;
+      let selectedGameId = null;
+
+      function displayGameCatalog() {
+        if (!gameController) return;
+
+        const games = gameController.getAvailableGames();
+
+        gamesGrid.innerHTML = '';
+
+        games.forEach(game => {
+          const card = document.createElement('div');
+          card.className = 'game-card';
+          card.setAttribute('data-game-id', game.id);
+
+          card.innerHTML = `
+            <div class="game-card-header">
+              <h4>${game.name}</h4>
+              <div class="checkmark"></div>
+            </div>
+            <div class="game-card-description">${game.description}</div>
+            <div class="game-card-info">
+              <div class="players-info">
+                <span class="icon">👥</span>
+                ${game.minPlayers}-${game.maxPlayers} players
+              </div>
+              <div class="play-badge">Ready to Play</div>
+            </div>
+          `;
+
+          card.addEventListener('click', () => {
+            document.querySelectorAll('.game-card').forEach(c => c.classList.remove('selected'));
+
+            card.classList.add('selected');
+            selectedGameId = game.id;
+
+            gameController.selectGame(game.id);
+
+            console.log('Selected game:', game.name);
+          });
+
+          gamesGrid.appendChild(card);
+        });
+
+        if (games.length > 0 && !selectedGameId) {
+          const firstCard = gamesGrid.querySelector('.game-card');
+          if (firstCard) {
+            firstCard.click();
+          }
+        }
+
+        gameCatalog.style.display = 'block';
+      }
 
       function connectSocket() {
         fetch('/config.json').then(r => r.json()).then(cfg => {
@@ -80,6 +143,13 @@
             socket = io(serverUrl + '/game');
             socket.on('connect', () => {
               console.log('Connected to socket server:', socket.id);
+
+              if (typeof GameController !== 'undefined' && GameController.RoomGameController) {
+                gameController = new GameController.RoomGameController('gameContainer', socket);
+                console.log('Game controller initialized');
+
+                setTimeout(() => displayGameCatalog(), 500);
+              }
 
               if (roomPin) {
                 joinExistingRoom(roomPin);
@@ -369,20 +439,38 @@
           if (gameContainer) {
             gameContainer.innerHTML = `
               <p>All players are connected!</p>
-              <p>The game will start soon...</p>
-              <button id="startGameBtn" class="room-btn">Start Now</button>
+              <p>Ready to start the game</p>
+              <button id="startGameBtn" class="room-btn">Start Game</button>
             `;
 
             const startGameBtn = document.getElementById('startGameBtn');
             if (startGameBtn) {
               startGameBtn.addEventListener('click', () => {
-                gameContainer.innerHTML = '<p>Game in progress...</p>';
+                if (gameController) {
+                  if (gameCatalog) {
+                    gameCatalog.style.display = 'none';
+                  }
+
+                  gameContainer.innerHTML = '';
+
+                  const playerData = players.map(p => ({
+                    id: p.id,
+                    username: p.username || `Player ${p.playerNumber}`,
+                    deviceCode: p.deviceCode,
+                    isConnected: p.isConnected
+                  }));
+
+                  gameController.startGame(playerData, selectedGameId);
+                  showNotification(`Game started: ${selectedGameId || 'default'}!`, 'success');
+                } else {
+                  gameContainer.innerHTML = '<p>Error: Game controller not initialized</p>';
+                }
               });
             }
           }
         } else {
           const gameContainer = document.getElementById('gameContainer');
-          if (gameContainer) {
+          if (gameContainer && gameContainer.querySelector('canvas') === null) {
             gameContainer.innerHTML = `
               <p>Waiting for all players to connect...</p>
               <p>${connectedCount} out of ${players.length} players connected</p>
