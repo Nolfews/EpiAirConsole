@@ -333,10 +333,14 @@ mobileNs.on('connection', (socket) => {
     for (const room of rooms) {
       const player = room.players.find(p => p.mobileId === socket.id);
       if (player) {
-        gameNs.to(player.id).emit('controller_input', {
-          from: socket.id,
+        gameNs.to(room.id).emit('controller_input', {
+          playerId: player.id,
           playerNumber: player.playerNumber,
-          data
+          action: data.action,
+          timestamp: data.timestamp,
+          joystickX: data.joystickX,
+          joystickY: data.joystickY,
+          data: data
         });
         break;
       }
