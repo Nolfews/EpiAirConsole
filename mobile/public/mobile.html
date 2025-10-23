@@ -50,12 +50,15 @@
         <p id="playerInfo">Player X</p>
 
         <div class="controller">
-          <div class="controller-grid">
-            <button class="controller-button" data-action="up">↑</button>
-            <button class="controller-button" data-action="right">→</button>
-            <button class="controller-button" data-action="left">←</button>
-            <button class="controller-button" data-action="down">↓</button>
-            <button class="controller-button fullwidth" data-action="action">Action</button>
+          <div class="controller-layout">
+            <div class="joystick-container">
+              <div id="joystickBase" class="joystick-base">
+                <div id="joystickStick" class="joystick-stick"></div>
+              </div>
+            </div>
+            <div class="action-container">
+              <button class="action-button" data-action="action">A</button>
+            </div>
           </div>
         </div>
 
