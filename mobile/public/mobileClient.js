@@ -228,6 +228,133 @@
     log('Input sent:', action);
   }
 
+  let joystickActive = false;
+  let joystickInterval = null;
+  let currentJoystickX = 0;
+  let currentJoystickY = 0;
+
+  function initJoystick() {
+    const joystickBase = document.getElementById('joystickBase');
+    const joystickStick = document.getElementById('joystickStick');
+
+    if (!joystickBase || !joystickStick) return;
+
+    const baseRect = joystickBase.getBoundingClientRect();
+    const baseRadius = baseRect.width / 2;
+    const stickRadius = joystickStick.offsetWidth / 2;
+    const maxDistance = baseRadius - stickRadius;
+
+    function handleJoystickMove(clientX, clientY) {
+      const rect = joystickBase.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      let deltaX = clientX - centerX;
+      let deltaY = clientY - centerY;
+
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      if (distance > maxDistance) {
+        const angle = Math.atan2(deltaY, deltaX);
+        deltaX = Math.cos(angle) * maxDistance;
+        deltaY = Math.sin(angle) * maxDistance;
+      }
+
+      joystickStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+      currentJoystickX = deltaX / maxDistance;
+      currentJoystickY = deltaY / maxDistance;
+
+      const deadzone = 0.1;
+      if (Math.abs(currentJoystickX) < deadzone) currentJoystickX = 0;
+      if (Math.abs(currentJoystickY) < deadzone) currentJoystickY = 0;
+    }
+
+    function resetJoystick() {
+      joystickStick.style.transform = 'translate(0px, 0px)';
+      joystickActive = false;
+      currentJoystickX = 0;
+      currentJoystickY = 0;
+      if (joystickInterval) {
+        clearInterval(joystickInterval);
+        joystickInterval = null;
+      }
+      sendJoystickInput(0, 0);
+    }
+
+    joystickStick.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      joystickActive = true;
+      const touch = e.touches[0];
+      handleJoystickMove(touch.clientX, touch.clientY);
+
+      joystickInterval = setInterval(() => {
+        sendJoystickInput(currentJoystickX, currentJoystickY);
+      }, 50);
+    });
+
+    joystickBase.addEventListener('touchmove', (e) => {
+      if (!joystickActive) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleJoystickMove(touch.clientX, touch.clientY);
+    });
+
+    joystickBase.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      resetJoystick();
+    });
+
+    joystickStick.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      joystickActive = true;
+      handleJoystickMove(e.clientX, e.clientY);
+
+      joystickInterval = setInterval(() => {
+        sendJoystickInput(currentJoystickX, currentJoystickY);
+      }, 50);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!joystickActive) return;
+      handleJoystickMove(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (joystickActive) {
+        resetJoystick();
+      }
+    });
+  }
+
+  function sendJoystickInput(x, y) {
+    if (!socket || !socket.connected || !roomId) return;
+
+    socket.emit('controller_input', {
+      action: 'joystick',
+      joystickX: x,
+      joystickY: y,
+      timestamp: Date.now(),
+      playerNumber
+    });
+  }
+
+  function initActionButton() {
+    const actionButton = document.querySelector('.action-button');
+
+    if (!actionButton) return;
+
+    actionButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      sendControllerInput('action');
+    });
+
+    actionButton.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      sendControllerInput('action');
+    });
+  }
+
   continueBtn.addEventListener('click', () => {
     log('Continue button clicked');
     connectToServer();
@@ -252,6 +379,10 @@
     const code = codeInputs.map(input => input.value).join('');
     if (code.length === 3) {
       pairWithPlayer(code);
+      setTimeout(() => {
+        initJoystick();
+        initActionButton();
+      }, 500);
     }
   });
 
