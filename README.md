@@ -261,6 +261,66 @@ Security notes
 - For development, you can use `npm run dev` if available in each part.
 - Docker instructions will be added soon for unified launch.
 
+## Game Development with Phaser.js
+
+EpiAirConsole now includes a complete game development system using Phaser.js. You can create 2D games that players control from their mobile devices.
+
+### Quick Start - Creating Games
+
+1. **Build the game system** (first time):
+   ```bash
+   cd frontend
+   npm run build:game
+   ```
+
+2. **Watch mode for development**:
+   ```bash
+   cd frontend
+   npm run watch:game
+   ```
+
+### Game Architecture
+
+The game system is organized as follows:
+- **`frontend/src/games/BaseGame.ts`**: Abstract base class for all games
+- **`frontend/src/games/SimpleGameExample.ts`**: Example game with moving circles
+- **`frontend/src/games/GameManager.ts`**: Handles game lifecycle and registration
+- **`frontend/src/RoomGameController.ts`**: Integrates games into the room page
+
+### Creating a New Game
+
+1. Create a new file in `frontend/src/games/` extending `BaseGame`
+2. Implement required methods:
+   - `createPhaserConfig()`: Configure Phaser game settings
+   - `handlePlayerInput()`: Process controller inputs
+   - `onPlayerAdded()`: Handle player joins
+   - `onPlayerRemoved()`: Handle player leaves
+
+3. Register your game in `GameManager.ts`:
+   ```typescript
+   export const AVAILABLE_GAMES = {
+     'simple-example': SimpleGameExample,
+     'my-new-game': MyNewGame,  // Add here
+   } as const;
+   ```
+
+4. Rebuild: `npm run build:game`
+
+### Controller Actions
+
+Mobile controllers send these actions:
+- `up`, `down`, `left`, `right`: Directional movements
+- `action`: Primary action button
+
+### Example Game Flow
+
+1. Players join a room using a PIN code
+2. Each player connects their mobile device as a controller
+3. Host clicks "Start Game" when all players are ready
+4. Game initializes with Phaser canvas
+5. Players control their characters using mobile buttons
+6. Game handles inputs in real-time via Socket.IO
+
 ## Quick Postgres (Docker) — local development
 
 If you prefer to run a local Postgres in Docker (recommended to avoid touching the system DB), here's a small set of commands and notes you can copy-paste.
