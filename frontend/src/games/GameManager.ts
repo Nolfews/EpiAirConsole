@@ -1,8 +1,12 @@
 import { BaseGame, PlayerData } from './BaseGame';
 import { SimpleGameExample } from './SimpleGameExample';
+import { TetrisGame } from './TetrisGame';
+import { TankBattleGame } from './TankBattleGame';
 
 export const AVAILABLE_GAMES = {
   'simple-example': SimpleGameExample,
+  'tetris': TetrisGame,
+  'tank-battle': TankBattleGame,
 } as const;
 
 export type GameType = keyof typeof AVAILABLE_GAMES;
