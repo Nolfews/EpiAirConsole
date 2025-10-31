@@ -188,19 +188,26 @@ $box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .game-container {
-  margin: 40px 0;
-  height: 450px;
+  margin: 40px auto;
+  width: 100%;
+  max-width: 1280px;
+  min-height: 750px;
   background-color: $bg-light;
   border-radius: $border-radius;
   box-shadow: $box-shadow;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  text-align: center;
   font-size: 1.6rem;
   color: $text-secondary;
   position: relative;
-  overflow: hidden;
+  overflow: auto;
+  padding: 20px;
+
+  canvas {
+    display: inline-block !important;
+    margin: 0 auto !important;
+    max-width: 100%;
+    height: auto;
+  }
 
   &::after {
     content: "";
