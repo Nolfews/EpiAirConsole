@@ -194,6 +194,11 @@
           updatePlayerCount();
         });
 
+        socket.on('game_start_countdown', (data) => {
+          const startAt = data.startAt || Date.now() + 3000;
+          showCountdownOverlay(startAt);
+        });
+
         socket.on('controller_connected', (data) => {
           console.log('My controller connected:', data);
 
@@ -346,7 +351,7 @@
         playerCard.className = 'player-card';
         playerCard.setAttribute('data-player', player.playerNumber);
 
-        if (player.isCurrentPlayer) {
+        if (player.id === socket.id) {
           playerCard.classList.add('current-player');
         }
 
@@ -355,7 +360,7 @@
 
         playerCard.innerHTML = `
           <div class="player-icon">${playerIcon}</div>
-          <div class="player-number">${player.isCurrentPlayer ? 'You' : 'Player'} ${player.playerNumber}</div>
+          <div class="player-number">${player.id === socket.id ? 'You' : 'Player'} ${player.playerNumber}</div>
           <div class="player-username">${player.username}</div>
           ${player.deviceCode ? `
             <p>Association code:</p>
@@ -364,6 +369,12 @@
           <div class="status ${player.isConnected ? 'connected' : 'not-connected'}">
             ${player.isConnected ? 'Controller connected' : 'Controller not connected'}
           </div>
+          <div class="ready-status ${player.ready ? 'ready' : 'not-ready'}">${player.ready ? 'Ready' : 'Not ready'}</div>
+          ${player.id === socket.id ? `
+            <div class="ready-controls">
+              <button class="ready-btn" data-ready="${player.ready ? '1' : '0'}">${player.ready ? 'Unready' : 'Ready'}</button>
+            </div>
+          ` : ''}
         `;
 
         playerCard.style.opacity = '0';
@@ -374,6 +385,21 @@
           playerCard.style.opacity = '1';
           playerCard.style.transform = 'scale(1)';
         }, 50);
+
+        const readyBtn = playerCard.querySelector('.ready-btn');
+        if (readyBtn) {
+          readyBtn.addEventListener('click', () => {
+            const isReady = readyBtn.getAttribute('data-ready') === '1';
+            const newReady = !isReady;
+            if (roomData && roomData.roomId) {
+              socket.emit('player_ready', { roomId: roomData.roomId, ready: newReady }, (ack) => {
+                if (!ack || !ack.success) {
+                  showNotification('Could not set ready state', 'error');
+                }
+              });
+            }
+          });
+        }
 
         return playerCard;
       }
@@ -395,6 +421,8 @@
           const playerCard = createPlayerCard(player);
           playersContainer.appendChild(playerCard);
         });
+
+        checkAllPlayersConnected();
 
         updateRoomInfoDisplay();
       }
@@ -420,6 +448,46 @@
         }, 3000);
       }
 
+      let countdownTimerId = null;
+      function showCountdownOverlay(startAt) {
+        clearInterval(countdownTimerId);
+        const overlay = document.createElement('div');
+        overlay.className = 'countdown-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.background = 'rgba(0,0,0,0.45)';
+        overlay.style.zIndex = '9999';
+
+        const counter = document.createElement('div');
+        counter.style.fontSize = '96px';
+        counter.style.color = '#FFD700';
+        counter.style.fontWeight = 'bold';
+        overlay.appendChild(counter);
+
+        document.body.appendChild(overlay);
+
+        function update() {
+          const now = Date.now();
+          const diff = Math.max(0, Math.ceil((startAt - now) / 1000));
+          counter.textContent = diff.toString();
+          if (diff <= 0) {
+            clearInterval(countdownTimerId);
+            setTimeout(() => {
+              if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
+            }, 600);
+          }
+        }
+
+        update();
+        countdownTimerId = setInterval(update, 250);
+      }
+
       function checkAllPlayersConnected() {
         if (!players || players.length === 0) return;
 
@@ -437,35 +505,40 @@
         if (allConnected && players.length > 0) {
           const gameContainer = document.getElementById('gameContainer');
           if (gameContainer) {
-            gameContainer.innerHTML = `
-              <p>All players are connected!</p>
-              <p>Ready to start the game</p>
-              <button id="startGameBtn" class="room-btn">Start Game</button>
-            `;
+            const current = players.find(p => p.id === socket.id);
+            const isHost = current && current.playerNumber === 1;
+            const allReady = players.every(p => !!p.ready);
 
-            const startGameBtn = document.getElementById('startGameBtn');
-            if (startGameBtn) {
-              startGameBtn.addEventListener('click', () => {
-                if (gameController) {
-                  if (gameCatalog) {
-                    gameCatalog.style.display = 'none';
-                  }
+            if (allReady) {
+              if (isHost) {
+                gameContainer.innerHTML = `
+                  <p>All players are connected and ready!</p>
+                  <p>You are the host — start the game when ready</p>
+                  <button id="startGameBtn" class="room-btn">Start Game</button>
+                `;
 
-                  gameContainer.innerHTML = '';
-
-                  const playerData = players.map(p => ({
-                    id: p.id,
-                    username: p.username || `Player ${p.playerNumber}`,
-                    deviceCode: p.deviceCode,
-                    isConnected: p.isConnected
-                  }));
-
-                  gameController.startGame(playerData, selectedGameId);
-                  showNotification(`Game started: ${selectedGameId || 'default'}!`, 'success');
-                } else {
-                  gameContainer.innerHTML = '<p>Error: Game controller not initialized</p>';
+                const startGameBtn = document.getElementById('startGameBtn');
+                if (startGameBtn) {
+                  startGameBtn.addEventListener('click', () => {
+                    if (roomData && roomData.roomId) {
+                      socket.emit('start_game', { roomId: roomData.roomId, gameType: selectedGameId }, (ack) => {
+                        if (!ack || !ack.success) {
+                          showNotification(ack?.error || 'Could not start game', 'error');
+                        }
+                      });
+                    }
+                  });
                 }
-              });
+              } else {
+                gameContainer.innerHTML = `
+                  <p>All players are ready. Waiting for the host to start the game...</p>
+                `;
+              }
+            } else {
+              gameContainer.innerHTML = `
+                <p>All players are connected.</p>
+                <p>Click "Ready" on your card when you're ready to play.</p>
+              `;
             }
           }
         } else {
