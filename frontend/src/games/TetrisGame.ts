@@ -60,11 +60,12 @@ const TETROMINOS = {
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
 const BLOCK_SIZE = 25;
-const MINI_BLOCK_SIZE = 8;
+const MINI_BLOCK_SIZE = 10;
 
 interface TetrisPlayer extends PlayerData {
   board: number[][];
   currentPiece: any;
+  nextPiece: any;
   currentX: number;
   currentY: number;
   score: number;
@@ -73,24 +74,37 @@ interface TetrisPlayer extends PlayerData {
   gameOver: boolean;
   graphics?: Phaser.GameObjects.Graphics;
   miniGraphics?: Phaser.GameObjects.Graphics;
+  nextPieceGraphics?: Phaser.GameObjects.Graphics;
   scoreText?: Phaser.GameObjects.Text;
+  statsText?: Phaser.GameObjects.Text;
   dropCounter: number;
   lastTime: number;
+  isMainPlayer?: boolean;
 }
 
 export class TetrisGame extends BaseGame {
   private scene?: Phaser.Scene;
   private tetrisPlayers: Map<string, TetrisPlayer> = new Map();
   private playersList: TetrisPlayer[] = [];
+  private localPlayerId: string | null = null;
 
   constructor(containerId: string) {
     const config: GameConfig = {
       name: 'Tetris Battle',
-      description: 'Tetris multijoueur compétitif - Meilleur score gagne!',
+      description: 'Multiplayer competitive Tetris game',
       minPlayers: 1,
       maxPlayers: 4
     };
     super(containerId, config);
+  }
+
+  setLocalPlayerId(playerId: string): void {
+    this.localPlayerId = playerId;
+    console.log('TetrisGame: Local player set to', playerId);
+
+    if (this.scene && this.playersList.length > 0) {
+      this.layoutPlayers();
+    }
   }
 
   createPhaserConfig(): Phaser.Types.Core.GameConfig {
@@ -121,11 +135,6 @@ export class TetrisGame extends BaseGame {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    scene.add.text(600, 680, 'Joystick: ← → déplacer | ↓ descendre vite | A = rotation', {
-      fontSize: '16px',
-      color: '#888888'
-    }).setOrigin(0.5);
-
     this.players.forEach((player) => {
       this.initializeTetrisPlayer(scene, player);
     });
@@ -147,7 +156,18 @@ export class TetrisGame extends BaseGame {
       }
 
       this.drawBoard(player);
+
+      if (player.isMainPlayer) {
+        this.drawNextPiece(player);
+        this.updateStatsText(player);
+      }
     });
+  }
+
+  private updateStatsText(player: TetrisPlayer): void {
+    if (player.statsText) {
+      player.statsText.setText(`Score: ${player.score} | Level: ${player.level}`);
+    }
   }
 
   private initializeTetrisPlayer(scene: Phaser.Scene, playerData: PlayerData): void {
@@ -155,6 +175,7 @@ export class TetrisGame extends BaseGame {
       ...playerData,
       board: this.createEmptyBoard(),
       currentPiece: null,
+      nextPiece: null,
       currentX: 0,
       currentY: 0,
       score: 0,
@@ -166,34 +187,41 @@ export class TetrisGame extends BaseGame {
     };
 
     tetrisPlayer.graphics = scene.add.graphics();
+    tetrisPlayer.nextPieceGraphics = scene.add.graphics();
 
     this.tetrisPlayers.set(playerData.id, tetrisPlayer);
     this.playersList.push(tetrisPlayer);
 
+    this.generateNextPiece(tetrisPlayer);
     this.spawnNewPiece(tetrisPlayer);
   }
 
   private layoutPlayers(): void {
-    const count = this.playersList.length;
-
-    if (count === 1) {
-      this.setupMainBoard(this.playersList[0], 600, 350);
-    } else if (count === 2) {
-      this.setupMainBoard(this.playersList[0], 400, 350);
-      this.setupMainBoard(this.playersList[1], 800, 350);
-    } else if (count === 3) {
-      this.setupMainBoard(this.playersList[0], 600, 350);
-      this.setupMiniBoard(this.playersList[1], 200, 200);
-      this.setupMiniBoard(this.playersList[2], 1000, 200);
-    } else if (count === 4) {
-      this.setupMainBoard(this.playersList[0], 600, 350);
-      this.setupMiniBoard(this.playersList[1], 150, 150);
-      this.setupMiniBoard(this.playersList[2], 1050, 150);
-      this.setupMiniBoard(this.playersList[3], 150, 550);
+    if (!this.localPlayerId) {
+      console.warn('TetrisGame: Cannot layout players without localPlayerId');
+      return;
     }
+
+    const localPlayer = this.playersList.find(p => p.id === this.localPlayerId);
+    if (!localPlayer) {
+      console.warn('TetrisGame: Local player not found in players list');
+      return;
+    }
+
+    this.playersList.forEach(p => {
+      p.isMainPlayer = (p.id === this.localPlayerId);
+    });
+
+    this.setupMainBoard(localPlayer, 700, 350, true);
+
+    const otherPlayers = this.playersList.filter(p => p.id !== this.localPlayerId);
+    otherPlayers.forEach((player, index) => {
+      const yPosition = 150 + (index * 200);
+      this.setupMiniBoard(player, 150, yPosition);
+    });
   }
 
-  private setupMainBoard(player: TetrisPlayer, x: number, y: number): void {
+  private setupMainBoard(player: TetrisPlayer, x: number, y: number, showPreview: boolean = false): void {
     if (!this.scene) return;
 
     player.graphics?.setPosition(x - (BOARD_WIDTH * BLOCK_SIZE) / 2, y - (BOARD_HEIGHT * BLOCK_SIZE) / 2);
@@ -205,10 +233,85 @@ export class TetrisGame extends BaseGame {
     }).setOrigin(0.5);
 
     player.scoreText = this.scene.add.text(x, y + (BOARD_HEIGHT * BLOCK_SIZE) / 2 + 20,
-      `Score: 0 | Lignes: 0 | Niveau: 1`, {
-      fontSize: '16px',
-      color: '#00F0F0'
+      `Lines: ${player.lines}`, {
+      fontSize: '18px',
+      color: '#00F0F0',
+      fontStyle: 'bold'
     }).setOrigin(0.5);
+
+    if (showPreview) {
+      const previewX = x + (BOARD_WIDTH * BLOCK_SIZE) / 2 + 40;
+      const previewY = y - (BOARD_HEIGHT * BLOCK_SIZE) / 2 + 40;
+
+      this.scene.add.text(previewX + 45, previewY - 20, 'Next', {
+        fontSize: '18px',
+        color: '#00F0F0',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      this.scene.add.rectangle(previewX + 45, previewY + 35, 90, 90, 0x0a0a1e)
+        .setStrokeStyle(2, 0x00F0F0, 0.8);
+
+      player.nextPieceGraphics?.setPosition(0, 0);
+      player.nextPieceGraphics?.setDepth(10);
+
+      const helpPanelWidth = 260;
+      const helpPanelHeight = 300;
+      const helpPanelX = previewX + 10 - 20;
+      const helpPanelY = previewY + 160;
+      const helpPanelCenterX = helpPanelX + helpPanelWidth / 2;
+
+      player.statsText = this.scene.add.text(helpPanelCenterX, previewY + 110,
+        `Score: ${player.score} | Level: ${player.level}`, {
+        fontSize: '18px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        backgroundColor: '#000000',
+        padding: { x: 15, y: 8 }
+      }).setOrigin(0.5);
+
+      const helpPanel = this.scene.add.graphics();
+      helpPanel.fillStyle(0x1a1a2e, 0.95);
+      helpPanel.fillRoundedRect(helpPanelX, helpPanelY, helpPanelWidth, helpPanelHeight, 8);
+      helpPanel.lineStyle(2, 0x00F0F0, 0.8);
+      helpPanel.strokeRoundedRect(helpPanelX, helpPanelY, helpPanelWidth, helpPanelHeight, 8);
+
+      this.scene.add.text(helpPanelCenterX, helpPanelY + 25, '🕹️ CONTROLS', {
+        fontSize: '22px',
+        color: '#00F0F0',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      const controlsText = [
+        'LEFT/RIGHT   Move piece',
+        'DOWN   Fast drop',
+        'A   Rotate piece',
+      ];
+
+      controlsText.forEach((line, index) => {
+        this.scene!.add.text(helpPanelCenterX, helpPanelY + 65 + index * 30, line, {
+          fontSize: '16px',
+          color: '#ffffff',
+          fontStyle: 'bold'
+        }).setOrigin(0.5);
+      });
+
+      this.scene.add.text(helpPanelCenterX, helpPanelY + 210, '🎯 OBJECTIVE', {
+        fontSize: '22px',
+        color: '#00F0F0',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      this.scene.add.text(helpPanelCenterX, helpPanelY + 250, 'Complete lines to score\nHigher levels = faster!', {
+        fontSize: '16px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        align: 'center'
+      }).setOrigin(0.5);
+
+      (player as any).previewX = previewX;
+      (player as any).previewY = previewY;
+    }
   }
 
   private setupMiniBoard(player: TetrisPlayer, x: number, y: number): void {
@@ -217,13 +320,24 @@ export class TetrisGame extends BaseGame {
     player.miniGraphics = this.scene.add.graphics();
     player.miniGraphics.setPosition(x, y);
 
-    this.scene.add.text(x + (BOARD_WIDTH * MINI_BLOCK_SIZE) / 2, y - 20, player.username, {
+    const borderPadding = 5;
+    this.scene.add.rectangle(
+      x + (BOARD_WIDTH * MINI_BLOCK_SIZE) / 2,
+      y + (BOARD_HEIGHT * MINI_BLOCK_SIZE) / 2,
+      BOARD_WIDTH * MINI_BLOCK_SIZE + borderPadding * 2,
+      BOARD_HEIGHT * MINI_BLOCK_SIZE + borderPadding * 2,
+      0x000000,
+      0
+    ).setStrokeStyle(2, 0x555566, 0.8);
+
+    this.scene.add.text(x + (BOARD_WIDTH * MINI_BLOCK_SIZE) / 2, y - 25, player.username, {
       fontSize: '14px',
-      color: '#FFFFFF'
+      color: '#FFFFFF',
+      fontStyle: 'bold'
     }).setOrigin(0.5);
 
     player.scoreText = this.scene.add.text(x + (BOARD_WIDTH * MINI_BLOCK_SIZE) / 2,
-      y + (BOARD_HEIGHT * MINI_BLOCK_SIZE) + 10, `Score: 0`, {
+      y + (BOARD_HEIGHT * MINI_BLOCK_SIZE) + 15, `Score: 0`, {
       fontSize: '12px',
       color: '#00F0F0'
     }).setOrigin(0.5);
@@ -233,20 +347,39 @@ export class TetrisGame extends BaseGame {
     return Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0));
   }
 
-  private spawnNewPiece(player: TetrisPlayer): void {
+  private generateNextPiece(player: TetrisPlayer): void {
     const pieces = Object.keys(TETROMINOS);
     const randomPiece = pieces[Math.floor(Math.random() * pieces.length)];
     const tetromino = TETROMINOS[randomPiece as keyof typeof TETROMINOS];
 
-    player.currentPiece = {
+    player.nextPiece = {
       type: randomPiece,
       shape: JSON.parse(JSON.stringify(tetromino.shape)),
       color: tetromino.color,
       rotation: 0
     };
+  }
+
+  private spawnNewPiece(player: TetrisPlayer): void {
+    if (player.nextPiece) {
+      player.currentPiece = player.nextPiece;
+    } else {
+      const pieces = Object.keys(TETROMINOS);
+      const randomPiece = pieces[Math.floor(Math.random() * pieces.length)];
+      const tetromino = TETROMINOS[randomPiece as keyof typeof TETROMINOS];
+
+      player.currentPiece = {
+        type: randomPiece,
+        shape: JSON.parse(JSON.stringify(tetromino.shape)),
+        color: tetromino.color,
+        rotation: 0
+      };
+    }
+
+    this.generateNextPiece(player);
 
     player.currentX = Math.floor(BOARD_WIDTH / 2) - Math.floor(player.currentPiece.shape[0].length / 2);
-    player.currentY = 0;
+    player.currentY = -1;
 
     if (this.checkCollision(player, player.currentX, player.currentY)) {
       player.gameOver = true;
@@ -263,7 +396,11 @@ export class TetrisGame extends BaseGame {
           const newX = x + col;
           const newY = y + row;
 
-          if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT) {
+          if (newX < 0 || newX >= BOARD_WIDTH) {
+            return true;
+          }
+
+          if (newY >= BOARD_HEIGHT) {
             return true;
           }
 
@@ -416,15 +553,81 @@ export class TetrisGame extends BaseGame {
     graphics.fillRect(x * size + size - 4, y * size + 2, 2, size - 4);
   }
 
+  private drawNextPiece(player: TetrisPlayer): void {
+    const graphics = player.nextPieceGraphics;
+
+    if (!(player as any).hasLoggedDrawNextPiece) {
+      (player as any).hasLoggedDrawNextPiece = true;
+    }
+
+    if (!graphics || !player.nextPiece) {
+      console.error('drawNextPiece: EARLY EXIT - missing graphics or nextPiece', {
+        hasGraphics: !!graphics,
+        hasNextPiece: !!player.nextPiece,
+        username: player.username
+      });
+      return;
+    }
+
+    const previewX = (player as any).previewX || 0;
+    const previewY = (player as any).previewY || 0;
+
+    if (previewX === 0 && previewY === 0) {
+      console.error('drawNextPiece: EARLY EXIT - no preview position set for', player.username);
+      return;
+    }
+
+    graphics.clear();
+
+    const shape = player.nextPiece.shape;
+    const color = player.nextPiece.color;
+    const blockSize = 20;
+
+    const frameLeft = previewX + 45 - 45;
+    const frameTop = previewY + 35 - 45;
+
+    const pieceWidth = shape[0].length * blockSize;
+    const pieceHeight = shape.length * blockSize;
+    const offsetX = frameLeft + (90 - pieceWidth) / 2;
+    const offsetY = frameTop + (90 - pieceHeight) / 2;
+
+    for (let row = 0; row < shape.length; row++) {
+      for (let col = 0; col < shape[row].length; col++) {
+        if (shape[row][col]) {
+          const x = offsetX + col * blockSize;
+          const y = offsetY + row * blockSize;
+
+          graphics.fillStyle(color, 1);
+          graphics.fillRect(x + 1, y + 1, blockSize - 2, blockSize - 2);
+
+          graphics.fillStyle(0xFFFFFF, 0.3);
+          graphics.fillRect(x + 2, y + 2, blockSize - 4, 2);
+          graphics.fillRect(x + 2, y + 2, 2, blockSize - 4);
+
+          graphics.fillStyle(0x000000, 0.3);
+          graphics.fillRect(x + 2, y + blockSize - 4, blockSize - 4, 2);
+          graphics.fillRect(x + blockSize - 4, y + 2, 2, blockSize - 4);
+        }
+      }
+    }
+  }
+
   private showGameOver(player: TetrisPlayer): void {
     if (!this.scene) return;
 
-    const x = player.graphics ? player.graphics.x + (BOARD_WIDTH * BLOCK_SIZE) / 2 :
-                (player.miniGraphics?.x || 0) + (BOARD_WIDTH * MINI_BLOCK_SIZE) / 2;
-    const y = player.graphics ? player.graphics.y + (BOARD_HEIGHT * BLOCK_SIZE) / 2 :
-                (player.miniGraphics?.y || 0) + (BOARD_HEIGHT * MINI_BLOCK_SIZE) / 2;
+    let centerX, centerY;
 
-    this.scene.add.text(x, y, 'GAME OVER', {
+    if (player.graphics) {
+      centerX = player.graphics.x + (BOARD_WIDTH * BLOCK_SIZE) / 2;
+      centerY = player.graphics.y + (BOARD_HEIGHT * BLOCK_SIZE) / 2;
+    } else if (player.miniGraphics) {
+      centerX = player.miniGraphics.x + (BOARD_WIDTH * MINI_BLOCK_SIZE) / 2;
+      centerY = player.miniGraphics.y + (BOARD_HEIGHT * MINI_BLOCK_SIZE) / 2;
+    } else {
+      return;
+    }
+
+    this.scene.add.text(centerX, centerY, 'GAME OVER', {
       fontSize: '32px',
       color: '#FF0000',
       fontStyle: 'bold',
@@ -495,6 +698,7 @@ export class TetrisGame extends BaseGame {
     if (tetrisPlayer) {
       tetrisPlayer.graphics?.destroy();
       tetrisPlayer.miniGraphics?.destroy();
+      tetrisPlayer.nextPieceGraphics?.destroy();
       tetrisPlayer.scoreText?.destroy();
       this.tetrisPlayers.delete(player.id);
       this.playersList = this.playersList.filter(p => p.id !== player.id);
@@ -505,6 +709,7 @@ export class TetrisGame extends BaseGame {
     this.tetrisPlayers.forEach(player => {
       player.graphics?.destroy();
       player.miniGraphics?.destroy();
+      player.nextPieceGraphics?.destroy();
       player.scoreText?.destroy();
     });
     this.tetrisPlayers.clear();
