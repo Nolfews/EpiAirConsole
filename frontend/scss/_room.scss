@@ -158,6 +158,22 @@ $box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   }
 }
 
+.ready-btn {
+  background: linear-gradient(180deg, #1a73e8 0%, #1558c9 100%);
+  border: 0;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(20,30,60,0.35);
+  transition: transform 0.12s ease;
+}
+.ready-btn:hover { transform: translateY(-1px); }
+.ready-status.ready { color: $success-color; font-weight: 700; }
+.ready-status.not-ready { color: $error-color; font-weight: 700; }
+.player-card .ready-controls { margin-top: 8px; }
+
 .instructions {
   margin: 30px 0;
   padding: 25px;
