@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { BaseGame, PlayerData, GameConfig } from './BaseGame';
 
 const GAME_WIDTH = 1200;
-const GAME_HEIGHT = 700;
+const GAME_HEIGHT = 920;
 const TANK_SIZE = 30;
 const BULLET_SIZE = 8;
 const TANK_SPEED = 150;
@@ -16,6 +16,7 @@ interface TankPlayer extends PlayerData {
   body?: Phaser.Physics.Arcade.Body;
   health: number;
   isDead: boolean;
+  isSpawning?: boolean;
   nameText?: Phaser.GameObjects.Text;
   healthText?: Phaser.GameObjects.Text;
   lastFireTime: number;
@@ -40,12 +41,13 @@ export class TankBattleGame extends BaseGame {
   private statusText?: Phaser.GameObjects.Text;
   private winnerText?: Phaser.GameObjects.Text;
   private gameEnded: boolean = false;
+  private helpPanelElement?: HTMLElement;
 
   private playerColors = [
-    0x00ff00, // Vert
-    0xff0000, // Rouge
-    0x0000ff, // Bleu
-    0xffff00  // Jaune
+    0x00ff00,
+    0xff0000,
+    0x0000ff,
+    0xffff00
   ];
 
   constructor(containerId: string) {
@@ -87,23 +89,82 @@ export class TankBattleGame extends BaseGame {
   }
 
   private setupScene(scene: Phaser.Scene): void {
-    scene.add.text(GAME_WIDTH / 2, 20, 'TANK BATTLE ROYALE', {
-      fontSize: '32px',
+    scene.add.text(GAME_WIDTH / 2, 24, 'TANK BATTLE', {
+      fontSize: '36px',
+      color: '#00ff00',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    this.statusText = scene.add.text(GAME_WIDTH / 2 - 100, 56, 'In life players: 0/0', {
+      fontSize: '18px',
+      color: '#FFFFFF',
+      fontStyle: 'bold'
+    }).setDepth(50);
+
+  const helpPanelWidth = Math.min(900, GAME_WIDTH - 40);
+  const helpPanelHeight = 140;
+  const helpX = Math.round((GAME_WIDTH - helpPanelWidth) / 2);
+  const helpTopMargin = 40; // px
+  const helpY = Math.round(GAME_HEIGHT - helpPanelHeight - helpTopMargin);
+
+  const shadow = scene.add.graphics();
+  shadow.fillStyle(0x000000, 0.35);
+  shadow.fillRoundedRect(helpX + 4, helpY + 6, helpPanelWidth, helpPanelHeight, 10);
+  shadow.setDepth(90);
+
+  const helpGraphics = scene.add.graphics();
+  helpGraphics.fillStyle(0x0b1220, 0.98);
+  helpGraphics.fillRoundedRect(helpX, helpY, helpPanelWidth, helpPanelHeight, 10);
+  helpGraphics.lineStyle(2, 0xFFD700, 0.9);
+  helpGraphics.strokeRoundedRect(helpX, helpY, helpPanelWidth, helpPanelHeight, 10);
+  helpGraphics.setDepth(100);
+
+  const sepY = helpY - 6;
+  const sepCenterX = GAME_WIDTH / 2;
+  scene.add.rectangle(sepCenterX, sepY + 2, GAME_WIDTH, 6, 0xFFD700, 0.12).setDepth(95);
+  scene.add.rectangle(sepCenterX, sepY + 2, GAME_WIDTH, 2, 0xFFD700, 0.45).setDepth(96);
+
+    scene.add.text(helpX + Math.round(helpPanelWidth * 0.25), helpY + 18, '🕹️ CONTROLS', {
+      fontSize: '24px',
       color: '#FFD700',
       fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(100);
+    }).setOrigin(0.5).setDepth(110);
 
-    this.statusText = scene.add.text(GAME_WIDTH / 2, 50, '', {
-      fontSize: '18px',
-      color: '#FFFFFF'
-    }).setOrigin(0.5).setDepth(100);
+    scene.add.text(helpX + Math.round(helpPanelWidth * 0.25), helpY + 44, 'JOYSTICK — Move tank', {
+      fontSize: '20px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(110);
 
-    // Instructions
-    scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20,
-      'Joystick: Déplacer | Bouton A: Tirer | 3 touches = éliminé', {
-      fontSize: '14px',
-      color: '#888888'
-    }).setOrigin(0.5).setDepth(100);
+    scene.add.text(helpX + Math.round(helpPanelWidth * 0.25), helpY + 64, 'A — Fire bullet', {
+      fontSize: '20px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(110);
+
+    scene.add.text(helpX + Math.round(helpPanelWidth * 0.75), helpY + 18, '🎯 OBJECTIVE', {
+      fontSize: '24px',
+      color: '#FFD700',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(110);
+
+    scene.add.text(helpX + Math.round(helpPanelWidth * 0.75), helpY + 44, 'Destroy enemy tanks', {
+      fontSize: '20px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(110);
+
+    scene.add.text(helpX + Math.round(helpPanelWidth * 0.75), helpY + 64, 'Last survivor wins!', {
+      fontSize: '20px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(110);
+
+    scene.add.text(helpX + Math.round(helpPanelWidth * 0.75), helpY + 84, '3 hits = eliminated', {
+      fontSize: '20px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(110);
 
     this.generateMaze(scene);
 
@@ -141,15 +202,12 @@ export class TankBattleGame extends BaseGame {
       [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0]
     ];
 
-    // Génération des murs intérieurs à partir de la matrice
     for (let row = 0; row < mazeMatrix.length; row++) {
       for (let col = 0; col < mazeMatrix[row].length; col++) {
         if (mazeMatrix[row][col] === 1) {
-          // Calculer la position du mur (centré dans la cellule)
           const x = col * cellSize + cellSize / 2;
           const y = row * cellSize + cellSize / 2;
 
-          // Créer un mur
           const wall = scene.add.rectangle(x, y, cellSize, cellSize, 0x666666);
           scene.physics.add.existing(wall, true);
           const body = wall.body as Phaser.Physics.Arcade.StaticBody;
@@ -185,6 +243,12 @@ export class TankBattleGame extends BaseGame {
       kills: 0
     };
 
+    tankPlayer.isSpawning = true;
+    setTimeout(() => {
+      const tp = this.tankPlayers.get(playerData.id);
+      if (tp) tp.isSpawning = false;
+    }, 800);
+
     const tankSprite = scene.add.graphics();
     tankSprite.setPosition(spawn.x, spawn.y);
     tankSprite.setDepth(10);
@@ -210,9 +274,10 @@ export class TankBattleGame extends BaseGame {
       padding: { x: 4, y: 2 }
     }).setOrigin(0.5).setDepth(20);
 
-    tankPlayer.healthText = scene.add.text(spawn.x, spawn.y - 25, `❤️ ${TANK_HEALTH}`, {
-      fontSize: '12px',
-      color: '#FF0000'
+    tankPlayer.healthText = scene.add.text(spawn.x, spawn.y - 25, '❤️❤️❤️', {
+      fontSize: '14px',
+      color: '#FF0000',
+      fontStyle: 'bold'
     }).setOrigin(0.5).setDepth(20);
 
     this.drawTank(tankPlayer);
@@ -283,6 +348,7 @@ export class TankBattleGame extends BaseGame {
 
       this.tankPlayers.forEach(player => {
         if (!bullet.active || player.isDead || player.id === bullet.ownerId) return;
+        if (player.isSpawning) return;
 
         if (player.sprite && this.scene?.physics.overlap(bullet.sprite, player.sprite as any)) {
           bullet.active = false;
@@ -308,7 +374,8 @@ export class TankBattleGame extends BaseGame {
     player.health--;
 
     if (player.healthText) {
-      player.healthText.setText(`❤️ ${player.health}`);
+      const hearts = '❤️'.repeat(Math.max(0, player.health));
+      player.healthText.setText(hearts || '💀');
     }
 
     if (player.health <= 0) {
@@ -479,6 +546,14 @@ export class TankBattleGame extends BaseGame {
     this.tankPlayers.clear();
     this.bullets = [];
     this.walls = [];
+
+    try {
+      if (this.helpPanelElement && this.helpPanelElement.parentElement) {
+        this.helpPanelElement.parentElement.removeChild(this.helpPanelElement);
+        this.helpPanelElement = undefined;
+      }
+    } catch (e) {
+    }
 
     super.destroy();
   }
