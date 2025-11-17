@@ -122,7 +122,8 @@ gameNs.on('connection', (socket) => {
       deviceCode: p.deviceCode,
       isConnected: p.mobileId !== null,
       isCurrentPlayer: p.id === socket.id,
-      username: username
+      username: username,
+      ready: !!p.ready
     }));
 
     if (cb) {
@@ -175,7 +176,8 @@ gameNs.on('connection', (socket) => {
       deviceCode: p.deviceCode,
       isConnected: p.mobileId !== null,
       isCurrentPlayer: p.id === socket.id,
-      username: p.id === socket.id ? username : `Player ${p.playerNumber}`
+      username: p.id === socket.id ? username : `Player ${p.playerNumber}`,
+      ready: !!p.ready
     }));
 
     gameNs.to(room.id).emit('room_players_updated', {
@@ -217,6 +219,80 @@ gameNs.on('connection', (socket) => {
     if (cb) cb('pong');
   });
 
+  socket.on('player_ready', (payload: { roomId: string, ready: boolean }, cb?: (ack: any) => void) => {
+    const { roomId, ready } = payload || {};
+    if (!roomId) {
+      if (cb) cb({ success: false, error: 'Missing roomId' });
+      return;
+    }
+
+    const ok = roomManager.setPlayerReady(roomId, socket.id, !!ready);
+    const updatedRoom = roomManager.getRoomInfo(roomId);
+    if (updatedRoom) {
+      const allPlayers = updatedRoom.players.map(p => ({
+        id: p.id,
+        playerNumber: p.playerNumber,
+        deviceCode: p.deviceCode,
+        isConnected: p.mobileId !== null,
+        isCurrentPlayer: p.id === socket.id,
+        username: `Player ${p.playerNumber}`,
+        ready: !!p.ready
+      }));
+
+      gameNs.to(roomId).emit('room_players_updated', {
+        roomId: updatedRoom.id,
+        roomName: updatedRoom.name,
+        players: allPlayers,
+        changedPlayerId: socket.id
+      });
+    }
+
+    if (cb) cb({ success: !!ok });
+  });
+
+  socket.on('start_game', (payload: { roomId: string, gameType?: string }, cb?: (ack: any) => void) => {
+    const { roomId, gameType } = payload || {};
+    if (!roomId) {
+      if (cb) cb({ success: false, error: 'Missing roomId' });
+      return;
+    }
+
+    if (!roomManager.isRoomHost(socket.id, roomId)) {
+      if (cb) cb({ success: false, error: 'Only the room host can start the game' });
+      return;
+    }
+
+    const allReady = roomManager.areAllPlayersReady(roomId);
+    if (!allReady) {
+      if (cb) cb({ success: false, error: 'Not all players are ready' });
+      return;
+    }
+
+    const countdownMs = 3000;
+    const startAt = Date.now() + countdownMs;
+
+    gameNs.to(roomId).emit('game_start_countdown', { startAt, countdown: 3, gameType });
+
+    const updatedRoom = roomManager.getRoomInfo(roomId);
+    if (!updatedRoom) {
+      if (cb) cb({ success: false, error: 'Room not found' });
+      return;
+    }
+
+    const playersSnapshot = updatedRoom.players.map((p: any) => ({
+      id: p.id,
+      username: `Player ${p.playerNumber}`,
+      deviceCode: p.deviceCode,
+      isConnected: p.mobileId !== null
+    }));
+
+    setTimeout(() => {
+      gameNs.to(roomId).emit('game_start', { gameType, players: playersSnapshot });
+    }, countdownMs);
+
+    if (cb) cb({ success: true, startAt });
+  });
+
   socket.on('button_clicked', (payload: any) => {
     const { room, ts } = payload || {};
     if (room) {
@@ -242,7 +318,8 @@ gameNs.on('connection', (socket) => {
           deviceCode: p.deviceCode,
           isConnected: p.mobileId !== null,
           isCurrentPlayer: false,
-          username: `Player ${p.playerNumber}`
+          username: `Player ${p.playerNumber}`,
+          ready: !!p.ready
         }));
 
         gameNs.to(room.id).emit('room_players_updated', {
