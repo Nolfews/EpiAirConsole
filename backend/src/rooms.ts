@@ -16,6 +16,7 @@ interface Player {
   playerNumber: number;
   deviceCode: string;
   mobileId: string | null;
+  ready?: boolean;
 }
 
 const activeRooms: Map<string, Room> = new Map();
@@ -79,6 +80,8 @@ export function addPlayerToRoom(roomId: string, playerId: string): Player | null
     mobileId: null
   };
 
+  player.ready = false;
+
   room.players.push(player);
 
   deviceCodeMap.set(deviceCode, { roomId, playerId });
@@ -141,6 +144,26 @@ export function handleDisconnect(socketId: string): void {
       }
     }
   }
+}
+
+export function setPlayerReady(roomId: string, playerId: string, ready: boolean): boolean {
+  const room = activeRooms.get(roomId);
+  if (!room) return false;
+
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return false;
+
+  player.ready = ready;
+  return true;
+}
+
+export function areAllPlayersReady(roomId: string): boolean {
+  const room = activeRooms.get(roomId);
+  if (!room) return false;
+
+  if (room.players.length === 0) return false;
+
+  return room.players.every(p => p.ready === true);
 }
 
 export function getActiveRooms(): Room[] {
