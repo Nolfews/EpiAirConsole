@@ -49,6 +49,9 @@ export abstract class BaseGame {
 
   protected abstract onPlayerRemoved(player: PlayerData): void;
 
+  setLocalPlayerId(playerId: string): void {
+  }
+
   destroy(): void {
     if (this.game) {
       this.game.destroy(true);
