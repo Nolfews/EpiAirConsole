@@ -2,11 +2,13 @@ import { BaseGame, PlayerData } from './BaseGame';
 import { SimpleGameExample } from './SimpleGameExample';
 import { TetrisGame } from './TetrisGame';
 import { TankBattleGame } from './TankBattleGame';
+import BrickBreakerGame from './BrickBreakerGame';
 
 export const AVAILABLE_GAMES = {
   'simple-example': SimpleGameExample,
   'tetris': TetrisGame,
   'tank-battle': TankBattleGame,
+  'brick-breaker': BrickBreakerGame,
 } as const;
 
 export type GameType = keyof typeof AVAILABLE_GAMES;
@@ -45,7 +47,7 @@ export class GameManager {
   removePlayer(playerId: string): void {
     if (this.currentGame) {
       this.currentGame.removePlayer(playerId);
-    }
+    } 
   }
 
   handlePlayerInput(playerId: string, action: string, data?: any): void {
