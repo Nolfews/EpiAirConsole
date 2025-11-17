@@ -43,7 +43,6 @@ export class RoomGameController {
 
   private setupSocketListeners(): void {
     this.socket.on('controller_input', (data: any) => {
-      console.log('Controller input received:', data);
       if (data.playerId && data.action) {
         this.gameManager.handlePlayerInput(data.playerId, data.action, data);
       }
@@ -51,7 +50,17 @@ export class RoomGameController {
 
     this.socket.on('game_start', (data: any) => {
       console.log('Game starting:', data);
-      this.loadGame(data.gameType || 'simple-example');
+      const players = data && data.players ? data.players as PlayerData[] : [];
+      try {
+        if (players && players.length) {
+          this.startGame(players, data.gameType);
+        } else {
+          this.loadGame(data.gameType || 'simple-example');
+        }
+      } catch (e) {
+        console.error('Error starting game from game_start event', e);
+        this.loadGame(data.gameType || 'simple-example');
+      }
     });
 
     this.socket.on('game_end', () => {
@@ -63,11 +72,18 @@ export class RoomGameController {
   startGame(players: PlayerData[], gameType?: GameType): void {
     this.loadGame(gameType);
 
+    const localPlayerId = this.socket.id;
+
     players.forEach(player => {
       if (player.isConnected) {
         this.addPlayer(player);
       }
     });
+
+    const currentGame = this.gameManager.getCurrentGame();
+    if (currentGame && typeof (currentGame as any).setLocalPlayerId === 'function') {
+      (currentGame as any).setLocalPlayerId(localPlayerId);
+    }
 
     this.socket.emit('game_started', { gameType: this.selectedGameType });
   }
