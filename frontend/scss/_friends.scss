@@ -1,0 +1,596 @@
+.friends-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.friends-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(180deg, #1a73e8 0%, #1558c9 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(26, 115, 232, 0.35);
+  transition: all 0.2s ease;
+  position: relative;
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(26, 115, 232, 0.45);
+  }
+
+  .notification-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #ff3b30;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 20px;
+    text-align: center;
+    border: 2px solid white;
+  }
+
+  @media (min-width: 1201px) {
+    .homepage-main ~ .friends-container & {
+      display: none;
+    }
+  }
+}
+
+.friends-panel {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 400px;
+  max-height: 600px;
+  background: rgba(11, 18, 32, 0.98);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.friends-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    line-height: 28px;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: white;
+    }
+  }
+}
+
+.friends-tabs {
+  display: flex;
+  padding: 0 20px;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.friends-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  &.active {
+    color: white;
+    border-bottom-color: #1a73e8;
+  }
+
+  .tab-count {
+    display: inline-block;
+    margin-left: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 12px;
+
+    &.notification {
+      background: #ff3b30;
+    }
+  }
+}
+
+.friends-tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+.tab-pane {
+  display: none;
+
+  &.active {
+    display: block;
+  }
+}
+
+.friends-actions {
+  margin-bottom: 16px;
+}
+
+.add-friend-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: linear-gradient(180deg, #34c759 0%, #28a745 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(52, 199, 89, 0.4);
+  }
+}
+
+.friends-list,
+.requests-list,
+.invitations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.friend-card,
+.request-card,
+.invitation-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.friend-header,
+.request-header,
+.invitation-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-name {
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.online-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34c759;
+  display: inline-block;
+  animation: pulse 2s ease-in-out infinite;
+
+  &.offline {
+    background: #8e8e93;
+    animation: none;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.friend-username {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  margin: 0;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.invite-room-btn,
+.accept-btn,
+.reject-btn,
+.remove-friend-btn,
+.join-room-btn,
+.send-request-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.invite-room-btn,
+.join-room-btn,
+.send-request-btn {
+  background: linear-gradient(180deg, #1a73e8 0%, #1558c9 100%);
+  color: white;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+
+    &:hover {
+      transform: none;
+      box-shadow: none;
+    }
+  }
+}
+
+.accept-btn {
+  background: linear-gradient(180deg, #34c759 0%, #28a745 100%);
+  color: white;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(52, 199, 89, 0.4);
+  }
+}
+
+.reject-btn,
+.remove-friend-btn {
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+  border: 1px solid rgba(255, 59, 48, 0.3);
+
+  &:hover {
+    background: rgba(255, 59, 48, 0.2);
+    border-color: rgba(255, 59, 48, 0.5);
+  }
+}
+
+.invitation-details {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.invitation-room {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+
+  .label {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .value {
+    color: white;
+    font-weight: 600;
+  }
+}
+
+.invitation-pin {
+  display: flex;
+  justify-content: space-between;
+
+  .label {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .pin-code {
+    color: #1a73e8;
+    font-weight: 700;
+    font-family: monospace;
+    font-size: 16px;
+  }
+}
+
+.invitation-expires {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+
+  p {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 14px;
+    margin: 0;
+  }
+
+  svg {
+    width: 64px;
+    height: 64px;
+    color: rgba(255, 255, 255, 0.2);
+    margin-bottom: 16px;
+  }
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: rgba(11, 18, 32, 0.98);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 0.2s ease;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+  }
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+}
+
+.search-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+
+  input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: white;
+    font-size: 14px;
+
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #1a73e8;
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  button {
+    background: linear-gradient(180deg, #1a73e8 0%, #1558c9 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+    }
+  }
+}
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-search-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+@media (max-width: 768px) {
+  .friends-panel {
+    width: calc(100vw - 40px);
+    max-width: 400px;
+  }
+
+  .modal-content {
+    width: 95%;
+  }
+}
