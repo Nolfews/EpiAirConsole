@@ -89,11 +89,93 @@ const io = new IOServer(httpServer, {
 
 import * as roomManager from './rooms';
 
+const onlineUsers = new Map<string, string>();
+
 const gameNs = io.of('/game');
 const mobileNs = io.of('/mobile');
 
+function getSocketByUserId(userId: string) {
+  const socketId = onlineUsers.get(userId);
+  if (socketId) {
+    return gameNs.sockets.get(socketId);
+  }
+  return undefined;
+}
+
+function emitToUser(userId: string, event: string, data: any) {
+  const socket = getSocketByUserId(userId);
+  if (socket) {
+    socket.emit(event, data);
+  }
+}
+
 gameNs.on('connection', (socket) => {
   console.log('Frontend connected to /game namespace:', socket.id);
+
+  if (socket.handshake.query && socket.handshake.query.token) {
+    try {
+      const token = socket.handshake.query.token as string;
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      if (payload && payload.id) {
+        onlineUsers.set(payload.id, socket.id);
+        console.log(`User ${payload.username} (${payload.id}) is now online`);
+
+        socket.broadcast.emit('user_online', { userId: payload.id, username: payload.username });
+      }
+    } catch (err) {
+      console.error('Error parsing token on connection:', err);
+    }
+  }
+
+  socket.on('send_friend_request', async (data: { friendId: string }) => {
+    try {
+      const token = socket.handshake.query.token as string;
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+
+      if (payload && payload.id) {
+        emitToUser(data.friendId, 'friend_request_received', {
+          senderId: payload.id,
+          senderUsername: payload.username
+        });
+      }
+    } catch (err) {
+      console.error('Error sending friend request notification:', err);
+    }
+  });
+
+  socket.on('accept_friend_request', async (data: { friendId: string }) => {
+    try {
+      const token = socket.handshake.query.token as string;
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+
+      if (payload && payload.id) {
+        emitToUser(data.friendId, 'friend_request_accepted', {
+          userId: payload.id,
+          username: payload.username
+        });
+      }
+    } catch (err) {
+      console.error('Error sending friend accepted notification:', err);
+    }
+  });
+
+  socket.on('send_room_invitation', async (data: { friendId: string, roomId: string, pin: string }) => {
+    try {
+      const token = socket.handshake.query.token as string;
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+
+      if (payload && payload.id) {
+        emitToUser(data.friendId, 'room_invitation_received', {
+          senderId: payload.id,
+          senderUsername: payload.username,
+          roomId: data.roomId,
+          pin: data.pin
+        });
+      }
+    } catch (err) {
+      console.error('Error sending room invitation notification:', err);
+    }
+  });
 
   socket.on('create_room', (options: { name?: string, maxPlayers?: number } = {}, cb?: (room: any) => void) => {
     const { name, maxPlayers } = options;
@@ -303,6 +385,21 @@ gameNs.on('connection', (socket) => {
   socket.on('disconnect', (reason) => {
     console.log('Frontend disconnected', socket.id, reason);
 
+    if (socket.handshake.query && socket.handshake.query.token) {
+      try {
+        const token = socket.handshake.query.token as string;
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        if (payload && payload.id) {
+          onlineUsers.delete(payload.id);
+          console.log(`User ${payload.username} (${payload.id}) is now offline`);
+
+          socket.broadcast.emit('user_offline', { userId: payload.id, username: payload.username });
+        }
+      } catch (err) {
+        console.error('Error removing user from online list:', err);
+      }
+    }
+
     const playerRooms = roomManager.getActiveRooms().filter(room =>
       room.players.some(player => player.id === socket.id)
     );
@@ -433,6 +530,7 @@ mobileNs.on('connection', (socket) => {
 const host = process.env.HOST || '0.0.0.0';
 import { initDb } from './db';
 import authRouter from './auth';
+import friendsRouter from './friends';
 
 initDb().then(() => {
   console.log('Database initialized');
@@ -441,6 +539,7 @@ initDb().then(() => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api', friendsRouter);
 
 httpServer.listen(port, host, () => {
   console.log(`Backend listening on http://${host}:${port}`);
