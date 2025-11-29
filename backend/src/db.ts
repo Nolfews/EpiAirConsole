@@ -62,12 +62,46 @@ export async function initDb() {
   `;
   await pool.query(scoresTable);
 
+  // Table friendships
+  const friendshipsTable = `
+    CREATE TABLE IF NOT EXISTS friendships (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      friend_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+      created_at TIMESTAMPTZ DEFAULT now(),
+      accepted_at TIMESTAMPTZ,
+      UNIQUE(user_id, friend_id)
+    );
+  `;
+  await pool.query(friendshipsTable);
+
+  // Table room_invitations
+  const roomInvitationsTable = `
+    CREATE TABLE IF NOT EXISTS room_invitations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      room_id TEXT NOT NULL,
+      pin TEXT NOT NULL,
+      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'expired')),
+      created_at TIMESTAMPTZ DEFAULT now(),
+      expires_at TIMESTAMPTZ DEFAULT now() + INTERVAL '30 minutes'
+    );
+  `;
+  await pool.query(roomInvitationsTable);
+
   // Index for faster queries
   const indexes = `
     CREATE INDEX IF NOT EXISTS idx_game_scores_user_id ON game_scores(user_id);
     CREATE INDEX IF NOT EXISTS idx_game_scores_game_type ON game_scores(game_type);
     CREATE INDEX IF NOT EXISTS idx_game_sessions_room_id ON game_sessions(room_id);
     CREATE INDEX IF NOT EXISTS idx_game_sessions_status ON game_sessions(status);
+    CREATE INDEX IF NOT EXISTS idx_friendships_user_id ON friendships(user_id);
+    CREATE INDEX IF NOT EXISTS idx_friendships_friend_id ON friendships(friend_id);
+    CREATE INDEX IF NOT EXISTS idx_friendships_status ON friendships(status);
+    CREATE INDEX IF NOT EXISTS idx_room_invitations_receiver_id ON room_invitations(receiver_id);
+    CREATE INDEX IF NOT EXISTS idx_room_invitations_status ON room_invitations(status);
   `;
   await pool.query(indexes);
 
@@ -165,14 +199,11 @@ export async function getPlayerScores(userId: string, gameType?: string) {
     WHERE gs.user_id = $1
   `;
   const params: any[] = [userId];
-
   if (gameType) {
     query += ` AND gs.game_type = $2`;
     params.push(gameType);
   }
-
   query += ` ORDER BY gs.created_at DESC LIMIT 50`;
-
   const result = await pool.query(query, params);
   return result.rows;
 }
@@ -192,6 +223,184 @@ export async function getLeaderboard(gameType: string, limit: number = 10) {
      ORDER BY best_score DESC
      LIMIT $2`,
     [gameType, limit]
+  );
+  return result.rows;
+}
+
+export async function sendFriendRequest(userId: string, friendId: string) {
+  const existing = await pool.query(
+    `SELECT * FROM friendships
+     WHERE (user_id = $1 AND friend_id = $2)
+        OR (user_id = $2 AND friend_id = $1)`,
+    [userId, friendId]
+  );
+
+  if (existing.rows.length > 0) {
+    throw new Error('Friend request already exists or you are already friends');
+  }
+
+  const result = await pool.query(
+    `INSERT INTO friendships (user_id, friend_id, status)
+     VALUES ($1, $2, 'pending')
+     RETURNING *`,
+    [userId, friendId]
+  );
+  return result.rows[0];
+}
+
+export async function acceptFriendRequest(userId: string, friendId: string) {
+  const result = await pool.query(
+    `UPDATE friendships
+     SET status = 'accepted', accepted_at = now()
+     WHERE user_id = $1 AND friend_id = $2 AND status = 'pending'
+     RETURNING *`,
+    [friendId, userId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Friend request not found');
+  }
+
+  return result.rows[0];
+}
+
+export async function rejectFriendRequest(userId: string, friendId: string) {
+  const result = await pool.query(
+    `UPDATE friendships
+     SET status = 'rejected'
+     WHERE user_id = $1 AND friend_id = $2 AND status = 'pending'
+     RETURNING *`,
+    [friendId, userId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Friend request not found');
+  }
+
+  return result.rows[0];
+}
+
+export async function removeFriend(userId: string, friendId: string) {
+  const result = await pool.query(
+    `DELETE FROM friendships
+     WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+       AND status = 'accepted'
+     RETURNING *`,
+    [userId, friendId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Friendship not found');
+  }
+
+  return result.rows[0];
+}
+
+export async function getFriends(userId: string) {
+  const result = await pool.query(
+    `SELECT
+       u.id, u.username, u.first_name, u.last_name,
+       f.created_at as friendship_date, f.accepted_at
+     FROM friendships f
+     JOIN users u ON (
+       CASE
+         WHEN f.user_id = $1 THEN u.id = f.friend_id
+         WHEN f.friend_id = $1 THEN u.id = f.user_id
+       END
+     )
+     WHERE (f.user_id = $1 OR f.friend_id = $1) AND f.status = 'accepted'
+     ORDER BY u.username`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function getPendingFriendRequests(userId: string) {
+  const result = await pool.query(
+    `SELECT
+       f.id as request_id,
+       u.id, u.username, u.first_name, u.last_name,
+       f.created_at
+     FROM friendships f
+     JOIN users u ON u.id = f.user_id
+     WHERE f.friend_id = $1 AND f.status = 'pending'
+     ORDER BY f.created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function searchUsers(query: string, currentUserId: string, limit: number = 20) {
+  const result = await pool.query(
+    `SELECT id, username, first_name, last_name
+     FROM users
+     WHERE (username ILIKE $1 OR email ILIKE $1)
+       AND id != $2
+     LIMIT $3`,
+    [`%${query}%`, currentUserId, limit]
+  );
+  return result.rows;
+}
+
+export async function createRoomInvitation(senderId: string, receiverId: string, roomId: string, pin: string) {
+  await pool.query(
+    `DELETE FROM room_invitations
+     WHERE sender_id = $1 AND receiver_id = $2 AND status = 'pending'`,
+    [senderId, receiverId]
+  );
+
+  const result = await pool.query(
+    `INSERT INTO room_invitations (sender_id, receiver_id, room_id, pin, status)
+     VALUES ($1, $2, $3, $4, 'pending')
+     RETURNING *`,
+    [senderId, receiverId, roomId, pin]
+  );
+  return result.rows[0];
+}
+
+export async function acceptRoomInvitation(invitationId: string, userId: string) {
+  const result = await pool.query(
+    `UPDATE room_invitations
+     SET status = 'accepted'
+     WHERE id = $1 AND receiver_id = $2 AND status = 'pending' AND expires_at > now()
+     RETURNING *`,
+    [invitationId, userId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Invitation not found or expired');
+  }
+
+  return result.rows[0];
+}
+
+export async function rejectRoomInvitation(invitationId: string, userId: string) {
+  const result = await pool.query(
+    `UPDATE room_invitations
+     SET status = 'rejected'
+     WHERE id = $1 AND receiver_id = $2 AND status = 'pending'
+     RETURNING *`,
+    [invitationId, userId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Invitation not found');
+  }
+
+  return result.rows[0];
+}
+
+export async function getPendingRoomInvitations(userId: string) {
+  const result = await pool.query(
+    `SELECT
+       ri.id, ri.room_id, ri.pin, ri.created_at, ri.expires_at,
+       u.id as sender_id, u.username as sender_username,
+       u.first_name as sender_first_name, u.last_name as sender_last_name
+     FROM room_invitations ri
+     JOIN users u ON u.id = ri.sender_id
+     WHERE ri.receiver_id = $1 AND ri.status = 'pending' AND ri.expires_at > now()
+     ORDER BY ri.created_at DESC`,
+    [userId]
   );
   return result.rows;
 }
