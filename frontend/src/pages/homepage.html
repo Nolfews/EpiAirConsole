@@ -8,8 +8,8 @@
   </head>
   <body>
     <div id="navbar-root"></div>
-
-    <main>
+    <div id="friends-root"></div>
+    <main class="homepage-main">
       <section class="hero">
         <h1>EpiAirConsole</h1>
         <h1>Welcome for a new adventure</h1>
@@ -19,9 +19,13 @@
           </div>
       </section>
     </main>
-
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/friends.js" defer></script>
     <script>
-      (async function(){
+      let socket;
+      let friendsManager;
+
+      window.addEventListener('load', async function(){
         const resp = await fetch('/src/components/navbar.html');
         if(!resp.ok)
             return;
@@ -34,7 +38,129 @@
             window.location.href = target;
           });
         });
-      })();
+
+        const friendsResp = await fetch('/src/components/friends.html');
+        if(friendsResp.ok){
+          const friendsHtml = await friendsResp.text();
+          const friendsRoot = document.getElementById('friends-root');
+          friendsRoot.innerHTML = friendsHtml;
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const token = localStorage.getItem('token');
+          if(token) {
+            const config = {
+                serverUrl: window.location.protocol + '//' + window.location.host,
+                defaultRoom: 'test-room',
+                availableUrls: [`http://127.0.0.1:3000`, `http://localhost:3000`]
+            };
+            const friendsPanel = document.getElementById('friendsPanel');
+            if(friendsPanel) {
+              friendsPanel.classList.add('homepage-friends-panel');
+              friendsPanel.style.display = 'flex';
+              const panelTitle = friendsPanel.querySelector('.friends-panel-header h3');
+              if(panelTitle) {
+                panelTitle.textContent = 'My Friends';
+              }
+            }
+            const friendsToggle = document.getElementById('friendsToggle');
+            if(friendsToggle) {
+              friendsToggle.style.display = 'none';
+            }
+            if(window.innerWidth <= 1200) {
+              if(friendsToggle) {
+                friendsToggle.style.display = 'flex';
+              }
+              if(friendsPanel) {
+                friendsPanel.style.display = 'none';
+              }
+            }
+          } else {
+            console.log('[DEBUG] User not logged in, hiding friends system');
+            friendsRoot.style.display = 'none';
+          }
+        } else {
+          console.log('[DEBUG] Failed to load friends component');
+        }
+
+        const token = localStorage.getItem('token');
+
+          if(token) {
+            socket = io(config.serverUrl + '/game', {
+                query: {
+                    token: token
+                }
+            });
+
+            socket.on('connect', () => {
+                if (typeof FriendsClient === 'function') {
+                    friendsManager = new FriendsClient();
+                    friendsManager.token = token;
+                    friendsManager.setupUI();
+                    friendsManager.setSocket(socket);
+                    friendsManager.loadFriends();
+                    friendsManager.loadFriendRequests();
+                    friendsManager.loadRoomInvitations();
+                } else {
+                    console.error('FriendsClient not available');
+                }
+            });
+
+            socket.on('disconnect', (reason) => {
+                console.log('Socket disconnected:', reason);
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+            });
+            function parseJwt(token) {
+                try {
+                    const base64Url = token.split('.')[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(
+                        atob(base64)
+                            .split('')
+                            .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                            .join('')
+                    );
+                    return JSON.parse(jsonPayload);
+                } catch (e) {
+                    console.error("Error parsing JWT", e);
+                    return {};
+                }
+            }
+
+            const userData = parseJwt(token);
+            const username = userData.username || "User";
+
+            const hero = document.querySelector('.hero');
+            const welcomeMsg = document.createElement('div');
+            welcomeMsg.className = 'welcome-message';
+            welcomeMsg.innerHTML = `<p>Welcome, <span class="username">${username}</span>!</p>`;
+            hero.insertBefore(welcomeMsg, hero.querySelector('p'));
+
+            const heroActions = document.getElementById('heroActions');
+            if (heroActions) {
+                heroActions.innerHTML = `
+                    <button id="createRoomBtn" class="btn primary-btn">Create Room</button>
+                    <button id="joinRoomBtn" class="btn secondary-btn">Join Room</button>
+                `;
+                setTimeout(() => {
+                    const createRoomBtn = document.getElementById('createRoomBtn');
+                    if (createRoomBtn) {
+                        createRoomBtn.addEventListener('click', () => {
+                            window.location.href = '/room.html';
+                        });
+                    }
+
+                    const joinRoomBtn = document.getElementById('joinRoomBtn');
+                    if (joinRoomBtn) {
+                        joinRoomBtn.addEventListener('click', () => {
+                            showJoinRoomDialog();
+                        });
+                    }
+                }, 100);
+            }
+        }
+      });
 
       document.addEventListener('click', e=>{
         const target = e.target;
@@ -102,58 +228,6 @@
           }
         });
       }
-
-        const token = localStorage.getItem('token');
-        if (token) {
-            function parseJwt(token) {
-                try {
-                    const base64Url = token.split('.')[1];
-                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                    const jsonPayload = decodeURIComponent(
-                        atob(base64)
-                            .split('')
-                            .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                            .join('')
-                    );
-                    return JSON.parse(jsonPayload);
-                } catch (e) {
-                    console.error("Error parsing JWT", e);
-                    return {};
-                }
-            }
-
-            const userData = parseJwt(token);
-            const username = userData.username || "User";
-
-            const hero = document.querySelector('.hero');
-            const welcomeMsg = document.createElement('div');
-            welcomeMsg.className = 'welcome-message';
-            welcomeMsg.innerHTML = `<p>Welcome, <span class="username">${username}</span>!</p>`;
-            hero.insertBefore(welcomeMsg, hero.querySelector('p'));
-
-            const heroActions = document.getElementById('heroActions');
-            if (heroActions) {
-                heroActions.innerHTML = `
-                    <button id="createRoomBtn" class="btn primary-btn">Create Room</button>
-                    <button id="joinRoomBtn" class="btn secondary-btn">Join Room</button>
-                `;
-                setTimeout(() => {
-                    const createRoomBtn = document.getElementById('createRoomBtn');
-                    if (createRoomBtn) {
-                        createRoomBtn.addEventListener('click', () => {
-                            window.location.href = '/room.html';
-                        });
-                    }
-
-                    const joinRoomBtn = document.getElementById('joinRoomBtn');
-                    if (joinRoomBtn) {
-                        joinRoomBtn.addEventListener('click', () => {
-                            showJoinRoomDialog();
-                        });
-                    }
-                }, 100);
-            }
-        }
     </script>
   </body>
 </html>
