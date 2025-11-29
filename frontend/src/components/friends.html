@@ -1,0 +1,83 @@
+<div class="friends-container">
+  <button class="friends-toggle" id="friendsToggle">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+      <circle cx="9" cy="7" r="4"></circle>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+    </svg>
+    <span>Friends</span>
+    <span class="notification-badge" id="friendsNotificationBadge" style="display: none;">0</span>
+  </button>
+  <div class="friends-panel" id="friendsPanel" style="display: none;">
+    <div class="friends-panel-header">
+      <h3>Friends & Invitations</h3>
+      <button class="close-btn" id="closeFriendsPanel">×</button>
+    </div>
+    <div class="friends-tabs">
+      <button class="friends-tab active" data-tab="friends">
+        Friends
+        <span class="tab-count" id="friendsCount">0</span>
+      </button>
+      <button class="friends-tab" data-tab="requests">
+        Requests
+        <span class="tab-count notification" id="requestsCount" style="display: none;">0</span>
+      </button>
+      <button class="friends-tab" data-tab="invitations">
+        Room Invites
+        <span class="tab-count notification" id="invitationsCount" style="display: none;">0</span>
+      </button>
+    </div>
+    <div class="friends-tab-content">
+      <div class="tab-pane active" id="friendsTab">
+        <div class="friends-actions">
+          <button class="add-friend-btn" id="addFriendBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Friend
+          </button>
+        </div>
+        <div class="friends-list" id="friendsList">
+          <div class="empty-state">
+            <p>No friends yet. Add friends to invite them to games!</p>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane" id="requestsTab">
+        <div class="requests-list" id="requestsList">
+          <div class="empty-state">
+            <p>No pending friend requests</p>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane" id="invitationsTab">
+        <div class="invitations-list" id="invitationsList">
+          <div class="empty-state">
+            <p>No pending room invitations</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="addFriendModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Friend</h3>
+        <button class="close-btn" id="closeAddFriendModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="search-box">
+          <input type="text" id="searchUserInput" placeholder="Search by username or email..." />
+          <button id="searchUserBtn">Search</button>
+        </div>
+        <div class="search-results" id="searchResults">
+          <div class="empty-state">
+            <p>Search for users to add as friends</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
