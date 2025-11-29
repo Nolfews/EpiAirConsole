@@ -9,6 +9,43 @@ $modal-bg: #282c34;
 $modal-overlay: rgba(0, 0, 0, 0.7);
 $error-color: #ff4444;
 
+.homepage-main {
+  margin-right: 420px;
+  transition: margin-right 0.3s ease;
+
+  @media (max-width: 1200px) {
+    margin-right: 0;
+  }
+}
+
+.homepage-friends-panel {
+  position: fixed !important;
+  top: 80px !important;
+  right: 20px !important;
+  display: flex !important;
+  width: 380px !important;
+  max-height: calc(100vh - 100px) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
+  border: 2px solid rgba(26, 115, 232, 0.3) !important;
+  @media (max-width: 1200px) {
+    position: fixed !important;
+    top: 80px !important;
+    right: -400px !important;
+    transition: right 0.3s ease;
+    z-index: 2000 !important;
+
+    &.mobile-open {
+      right: 20px !important;
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  .homepage-main ~ .friends-container .friends-toggle {
+    display: flex !important;
+  }
+}
+
 .welcome-message {
   background-color: rgba(255, 255, 255, 0.1);
   padding: 10px 20px;
