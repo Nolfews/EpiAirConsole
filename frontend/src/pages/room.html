@@ -8,6 +8,7 @@
   </head>
   <body>
     <div id="navbar-root"></div>
+    <div id="friends-root"></div>
 
     <main class="game-room">
       <div class="room-header">
@@ -36,7 +37,6 @@
       <div class="game-catalog" id="gameCatalog" style="display: none;">
         <h3>🎮 Select a Game</h3>
         <div class="games-grid" id="gamesGrid">
-          <!-- Games will be dynamically loaded here -->
         </div>
       </div>
 
@@ -48,6 +48,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/game.js"></script>
+    <script src="/friends.js"></script>
     <script>
       (async function(){
         const resp = await fetch('/src/components/navbar.html');
@@ -62,6 +63,13 @@
             window.location.href = target;
           });
         });
+
+        const friendsResp = await fetch('/src/components/friends.html');
+        if(friendsResp.ok){
+          const friendsHtml = await friendsResp.text();
+          const friendsRoot = document.getElementById('friends-root');
+          friendsRoot.innerHTML = friendsHtml;
+        }
       })();
 
       const token = localStorage.getItem('token');
@@ -140,9 +148,21 @@
         fetch('/config.json').then(r => r.json()).then(cfg => {
           try {
             const serverUrl = cfg.serverUrl || window.location.origin;
-            socket = io(serverUrl + '/game');
+            socket = io(serverUrl + '/game', {
+              query: { token: token }
+            });
             socket.on('connect', () => {
               console.log('Connected to socket server:', socket.id);
+
+              if (typeof FriendsClient === 'function') {
+                window.friendsManager = new FriendsClient();
+                window.friendsManager.token = token;
+                window.friendsManager.setupUI();
+                window.friendsManager.setSocket(socket);
+                window.friendsManager.loadFriends();
+                window.friendsManager.loadFriendRequests();
+                window.friendsManager.loadRoomInvitations();
+              }
 
               if (typeof GameController !== 'undefined' && GameController.RoomGameController) {
                 gameController = new GameController.RoomGameController('gameContainer', socket);
@@ -241,6 +261,10 @@
 
           updateRoomUI();
 
+          if (window.friendsManager) {
+            window.friendsManager.setCurrentRoom(roomData.roomId, roomData.pin);
+          }
+
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.set('pin', roomData.pin);
           window.history.pushState({}, '', newUrl);
@@ -254,6 +278,10 @@
             roomData = response;
 
             updateRoomUI();
+
+            if (window.friendsManager) {
+              window.friendsManager.setCurrentRoom(roomData.roomId, roomData.pin);
+            }
           } else {
             console.error('Failed to join room:', response.error);
             alert('Erreur: ' + response.error);
