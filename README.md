@@ -10,6 +10,7 @@ EpiAirConsole is inspired by the AirConsole platform, which allows users to play
 - Modular game integration with Phaser.js (2D games)
 - Room system with PIN codes for multi-player sessions
 - Player-controller pairing with unique device codes
+- **Friends system with invitations** (see [FRIENDS.md](FRIENDS.md))
 - All code written in TypeScript
 
 See [ROOMS.md](ROOMS.md) for details on the room system and controller pairing.
