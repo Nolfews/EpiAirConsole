@@ -72,7 +72,16 @@ export class RoomGameController {
   startGame(players: PlayerData[], gameType?: GameType): void {
     this.loadGame(gameType);
 
-    const localPlayerId = this.socket.id;
+    const localSocketId = this.socket.id;
+    console.log('🎮 Starting game with local socket ID:', localSocketId);
+    console.log('📋 All players:', players);
+
+    const localPlayer = players.find(p => p.id === localSocketId);
+    if (localPlayer) {
+      console.log('✅ Found local player:', localPlayer);
+    } else {
+      console.warn('⚠️ Local player not found in players list');
+    }
 
     players.forEach(player => {
       if (player.isConnected) {
@@ -82,7 +91,8 @@ export class RoomGameController {
 
     const currentGame = this.gameManager.getCurrentGame();
     if (currentGame && typeof (currentGame as any).setLocalPlayerId === 'function') {
-      (currentGame as any).setLocalPlayerId(localPlayerId);
+      (currentGame as any).setLocalPlayerId(localSocketId);
+      console.log('🎯 Set local player ID to:', localSocketId);
     }
 
     this.socket.emit('game_started', { gameType: this.selectedGameType });
