@@ -405,4 +405,81 @@ export async function getPendingRoomInvitations(userId: string) {
   return result.rows;
 }
 
+export async function getUserProfile(userId: string) {
+  const result = await pool.query(
+    `SELECT
+      u.id, u.username, u.first_name, u.last_name, u.email,
+      u.avatar_url, u.bio, u.status, u.created_at,
+      up.total_games, up.total_wins, up.total_playtime,
+      up.current_win_streak, up.best_win_streak, up.last_game_date
+    FROM users u
+    LEFT JOIN user_profiles up ON u.id = up.user_id
+    WHERE u.id = $1`,
+    [userId]
+  );
+  return result.rows[0];
+}
+
+export async function updateUserInfo(userId: string, data: {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  email?: string;
+  bio?: string;
+  avatarUrl?: string;
+}) {
+  const fields: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (data.firstName !== undefined) {
+    fields.push(`first_name = $${paramIndex++}`);
+    values.push(data.firstName);
+  }
+  if (data.lastName !== undefined) {
+    fields.push(`last_name = $${paramIndex++}`);
+    values.push(data.lastName);
+  }
+  if (data.username !== undefined) {
+    fields.push(`username = $${paramIndex++}`);
+    values.push(data.username);
+  }
+  if (data.email !== undefined) {
+    fields.push(`email = $${paramIndex++}`);
+    values.push(data.email);
+  }
+  if (data.bio !== undefined) {
+    fields.push(`bio = $${paramIndex++}`);
+    values.push(data.bio);
+  }
+  if (data.avatarUrl !== undefined) {
+    fields.push(`avatar_url = $${paramIndex++}`);
+    values.push(data.avatarUrl);
+  }
+
+  if (fields.length === 0) return null;
+
+  values.push(userId);
+  const query = `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+
+  const result = await pool.query(query, values);
+  return result.rows[0];
+}
+
+export async function getUserStats(userId: string) {
+  const result = await pool.query(
+    `SELECT * FROM user_profiles WHERE user_id = $1`,
+    [userId]
+  );
+  return result.rows[0] || {
+    user_id: userId,
+    total_games: 0,
+    total_wins: 0,
+    total_playtime: 0,
+    current_win_streak: 0,
+    best_win_streak: 0,
+    last_game_date: null
+  };
+}
+
 export default pool;
