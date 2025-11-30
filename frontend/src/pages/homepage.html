@@ -26,12 +26,26 @@
       let friendsManager;
 
       window.addEventListener('load', async function(){
+        const token = localStorage.getItem('token');
+
         const resp = await fetch('/src/components/navbar.html');
         if(!resp.ok)
             return;
         const html = await resp.text();
         const root = document.getElementById('navbar-root');
         root.innerHTML = html;
+
+        const guestButtons = root.querySelectorAll('.guest-only');
+        const authButtons = root.querySelectorAll('.auth-only');
+
+        if (token) {
+          guestButtons.forEach(btn => btn.style.display = 'none');
+          authButtons.forEach(btn => btn.style.display = 'inline-block');
+        } else {
+          guestButtons.forEach(btn => btn.style.display = 'inline-block');
+          authButtons.forEach(btn => btn.style.display = 'none');
+        }
+        
         root.querySelectorAll('button[data-target]').forEach(btn=>{
           btn.addEventListener('click', ()=>{
             const target = btn.getAttribute('data-target');
@@ -39,13 +53,20 @@
           });
         });
 
+        const logoutBtn = root.querySelector('#logoutBtn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.href = '/signin.html';
+          });
+        }
+
         const friendsResp = await fetch('/src/components/friends.html');
         if(friendsResp.ok){
           const friendsHtml = await friendsResp.text();
           const friendsRoot = document.getElementById('friends-root');
           friendsRoot.innerHTML = friendsHtml;
           await new Promise(resolve => setTimeout(resolve, 100));
-          const token = localStorage.getItem('token');
           if(token) {
             const config = {
                 serverUrl: window.location.protocol + '//' + window.location.host,
@@ -80,8 +101,6 @@
         } else {
           console.log('[DEBUG] Failed to load friends component');
         }
-
-        const token = localStorage.getItem('token');
 
           if(token) {
             const serverUrl = window.location.origin;
