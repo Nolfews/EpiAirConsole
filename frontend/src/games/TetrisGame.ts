@@ -80,6 +80,7 @@ interface TetrisPlayer extends PlayerData {
   dropCounter: number;
   lastTime: number;
   isMainPlayer?: boolean;
+  lastInputTime: number;
 }
 
 export class TetrisGame extends BaseGame {
@@ -87,6 +88,7 @@ export class TetrisGame extends BaseGame {
   private tetrisPlayers: Map<string, TetrisPlayer> = new Map();
   private playersList: TetrisPlayer[] = [];
   private localPlayerId: string | null = null;
+  private gameStartTime: number = 0;
 
   constructor(containerId: string) {
     const config: GameConfig = {
@@ -96,6 +98,11 @@ export class TetrisGame extends BaseGame {
       maxPlayers: 4
     };
     super(containerId, config);
+  }
+
+  start(): void {
+    this.gameStartTime = Date.now();
+    super.start();
   }
 
   setLocalPlayerId(playerId: string): void {
@@ -183,7 +190,8 @@ export class TetrisGame extends BaseGame {
       level: 1,
       gameOver: false,
       dropCounter: 0,
-      lastTime: 0
+      lastTime: 0,
+      lastInputTime: 0
     };
 
     tetrisPlayer.graphics = scene.add.graphics();
@@ -613,6 +621,9 @@ export class TetrisGame extends BaseGame {
   }
 
   private showGameOver(player: TetrisPlayer): void {
+    console.log('💀 GAME OVER for player:', player.id);
+    console.log('   Local player ID:', this.localPlayerId);
+    console.log('   Is local player?', player.id === this.localPlayerId);
     if (!this.scene) return;
 
     let centerX, centerY;
@@ -634,6 +645,67 @@ export class TetrisGame extends BaseGame {
       backgroundColor: '#000000',
       padding: { x: 10, y: 5 }
     }).setOrigin(0.5);
+
+    if (player.id === this.localPlayerId) {
+      console.log('🎯 Sending game result for local player');
+      this.sendGameResult(player);
+    } else {
+      console.log('⏭️ Skipping game result (not local player)');
+    }
+  }
+
+  private async sendGameResult(player: TetrisPlayer): Promise<void> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('❌ No token found, skipping game result save');
+      return;
+    }
+
+    const duration = Math.floor((Date.now() - this.gameStartTime) / 1000); // seconds
+    const score = player.score;
+
+    const result = score > 1000 ? 'win' : 'loss';
+
+    const gameData = {
+      gameName: 'Tetris',
+      result,
+      score,
+      duration
+    };
+
+    console.log('🎮 GAME OVER - Sending result to server:');
+    console.log('  Game:', gameData.gameName);
+    console.log('  Result:', gameData.result);
+    console.log('  Score:', gameData.score);
+    console.log('  Duration:', gameData.duration, 'seconds');
+
+    try {
+      const response = await fetch('/api/games/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(gameData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Failed to save game result:', errorText);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('✅ Game result saved successfully!');
+      console.log('📊 Updated stats:', result.stats);
+      console.log('  Total games:', result.stats.total_games);
+      console.log('  Total wins:', result.stats.total_wins);
+      console.log('  Total playtime:', result.stats.total_playtime, 'seconds');
+      console.log('  Current streak:', result.stats.current_win_streak);
+      console.log('  Best streak:', result.stats.best_win_streak);
+    } catch (error) {
+      console.error('Error sending game result:', error);
+    }
   }
 
   handlePlayerInput(playerId: string, action: string, data?: any): void {
@@ -641,6 +713,14 @@ export class TetrisGame extends BaseGame {
     if (!player || player.gameOver) return;
 
     if (action === 'joystick' && data) {
+      const now = Date.now();
+      const INPUT_THROTTLE = 150;
+
+      if (now - player.lastInputTime < INPUT_THROTTLE) {
+        return;
+      }
+      player.lastInputTime = now;
+
       const joystickX = data.joystickX || 0;
       const joystickY = data.joystickY || 0;
 
