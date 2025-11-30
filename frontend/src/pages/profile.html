@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile - EpiAirConsole</title>
+  <link rel="stylesheet" href="/frontend.css">
+  <style>
+    .profile-container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 2rem;
+    }
+    .profile-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+    }
+    .profile-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .profile-header h1 {
+      color: #fff;
+      margin-bottom: 0.5rem;
+      font-size: 2rem;
+    }
+    .profile-header p {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .avatar-container {
+      position: relative;
+      display: inline-block;
+    }
+    .avatar-image {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.1);
+      display: block;
+    }
+    .avatar-placeholder {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .avatar-placeholder img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.3;
+    }
+
+    .profile-display {
+      display: block;
+    }
+    .profile-display.hidden {
+      display: none;
+    }
+    .profile-display-header {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      padding: 1.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+    .profile-display-avatar {
+      flex-shrink: 0;
+    }
+    .profile-display-info {
+      flex: 1;
+    }
+    .profile-display-username {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.3rem;
+    }
+    .profile-display-email {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .profile-display-actions {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .info-group {
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+    }
+    .info-group.full-width {
+      grid-column: 1 / -1;
+    }
+    .info-label {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .info-value {
+      color: #fff;
+      font-size: 1.1rem;
+    }
+    .info-value.empty {
+      color: rgba(255, 255, 255, 0.4);
+      font-style: italic;
+    }
+
+    .profile-edit {
+      display: none;
+    }
+    .profile-edit.active {
+      display: block;
+    }
+
+    .avatar-edit-section {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .avatar-edit-container {
+      position: relative;
+      display: inline-block;
+      cursor: pointer;
+    }
+    .avatar-edit-image {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.1);
+      display: block;
+      transition: all 0.3s;
+    }
+    .avatar-edit-container:hover .avatar-edit-image {
+      opacity: 0.7;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+    .avatar-edit-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .avatar-edit-container:hover .avatar-edit-overlay {
+      opacity: 1;
+    }
+    .avatar-edit-overlay-text {
+      color: white;
+      font-size: 2rem;
+      margin-bottom: 0.3rem;
+    }
+    .avatar-edit-overlay-label {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.85rem;
+    }
+    #avatarInput {
+      display: none;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.9rem;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      font-size: 1rem;
+      color: #fff;
+      transition: all 0.3s;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .form-group textarea {
+      resize: vertical;
+      min-height: 100px;
+      font-family: inherit;
+    }
+
+    .btn-container {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 2rem;
+    }
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .btn-primary:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .message {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .message.success {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+    .message.error {
+      background: rgba(244, 67, 54, 0.2);
+      color: #f44336;
+      border: 1px solid rgba(244, 67, 54, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="navbar-root"></div>
+  <div class="profile-container">
+    <div class="profile-card">
+      <div class="profile-header">
+        <h1>My Profile</h1>
+        <p>Manage your personal information</p>
+      </div>
+      <div id="message" class="message"></div>
+      <div id="profileDisplay" class="profile-display">
+        <div class="profile-display-header">
+          <div class="profile-display-avatar">
+            <div class="avatar-container">
+              <img id="avatarImage" class="avatar-image" src="" alt="Avatar" style="display: none;">
+              <div id="avatarPlaceholder" class="avatar-placeholder">
+                <img src="/assets/default-avatar-removebg.png" alt="Default avatar">
+              </div>
+            </div>
+          </div>
+          <div class="profile-display-info">
+            <div class="profile-display-username" id="displayUsername">-</div>
+            <div class="profile-display-email" id="displayEmail">-</div>
+          </div>
+          <div class="profile-display-actions">
+            <button id="editBtn" class="btn btn-primary">✏️ Edit</button>
+          </div>
+        </div>
+        <div class="info-grid">
+          <div class="info-group">
+            <div class="info-label">First Name</div>
+            <div id="displayFirstName" class="info-value empty">Not provided</div>
+          </div>
+          <div class="info-group">
+            <div class="info-label">Last Name</div>
+            <div id="displayLastName" class="info-value empty">Not provided</div>
+          </div>
+          <div class="info-group full-width">
+            <div class="info-label">Bio</div>
+            <div id="displayBio" class="info-value empty">No bio</div>
+          </div>
+        </div>
+      </div>
+      <div id="profileEdit" class="profile-edit">
+        <form id="profileForm">
+          <div class="avatar-edit-section">
+            <label for="avatarInput" class="avatar-edit-container">
+              <img id="avatarEditImage" class="avatar-edit-image" src="/assets/default-avatar-removebg.png" alt="Avatar">
+              <div class="avatar-edit-overlay">
+                <div class="avatar-edit-overlay-text">📷</div>
+                <div class="avatar-edit-overlay-label">Change photo</div>
+              </div>
+            </label>
+            <input type="file" id="avatarInput" accept="image/*">
+            <small style="color: rgba(255, 255, 255, 0.6); display: block; margin-top: 0.5rem;">Click on avatar to change photo (max 5MB)</small>
+          </div>
+
+          <div class="form-group">
+            <label for="username">Username *</label>
+            <input type="text" id="username" required>
+          </div>
+
+          <div class="form-group">
+            <label for="firstName">First Name</label>
+            <input type="text" id="firstName">
+          </div>
+
+          <div class="form-group">
+            <label for="lastName">Last Name</label>
+            <input type="text" id="lastName">
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" id="email" required>
+          </div>
+
+          <div class="form-group">
+            <label for="bio">Bio</label>
+            <textarea id="bio" placeholder="Tell us about yourself..."></textarea>
+          </div>
+
+          <div class="btn-container">
+            <button type="submit" class="btn btn-primary">💾 Save</button>
+            <button type="button" id="cancelBtn" class="btn btn-secondary">❌ Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', async function() {
+      const resp = await fetch('/src/components/navbar.html');
+      if(!resp.ok) return;
+      const html = await resp.text();
+      const root = document.getElementById('navbar-root');
+      root.innerHTML = html;
+      const token = localStorage.getItem('token');
+      const guestButtons = root.querySelectorAll('.guest-only');
+      const authButtons = root.querySelectorAll('.auth-only');
+      if (token) {
+        guestButtons.forEach(btn => btn.style.display = 'none');
+        authButtons.forEach(btn => btn.style.display = 'inline-block');
+      } else {
+        guestButtons.forEach(btn => btn.style.display = 'inline-block');
+        authButtons.forEach(btn => btn.style.display = 'none');
+      }
+      root.querySelectorAll('button[data-target]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          window.location.href = btn.getAttribute('data-target');
+        });
+      });
+      const logoutBtn = root.querySelector('#logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+          localStorage.removeItem('token');
+          window.location.href = '/signin.html';
+        });
+      }
+    });
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/signin.html';
+    }
+
+    let currentProfile = null;
+
+    function loadProfile() {
+      fetch('/api/profile', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          showMessage(data.error, 'error');
+          return;
+        }
+        currentProfile = data;
+
+        if (data.avatar_url && data.avatar_url.startsWith('data:image')) {
+          document.getElementById('avatarImage').src = data.avatar_url;
+          document.getElementById('avatarImage').style.display = 'block';
+          document.getElementById('avatarPlaceholder').style.display = 'none';
+        } else {
+          document.getElementById('avatarImage').style.display = 'none';
+          document.getElementById('avatarPlaceholder').style.display = 'flex';
+        }
+
+        document.getElementById('displayUsername').textContent = data.username || '-';
+        updateDisplayField('displayFirstName', data.first_name, 'Not provided');
+        updateDisplayField('displayLastName', data.last_name, 'Not provided');
+        document.getElementById('displayEmail').textContent = data.email || '-';
+        updateDisplayField('displayBio', data.bio, 'No bio');
+
+        document.getElementById('username').value = data.username || '';
+        document.getElementById('firstName').value = data.first_name || '';
+        document.getElementById('lastName').value = data.last_name || '';
+        document.getElementById('email').value = data.email || '';
+        document.getElementById('bio').value = data.bio || '';
+      })
+      .catch(err => {
+        showMessage('Error loading profile', 'error');
+        console.error(err);
+      });
+    }
+
+    function updateDisplayField(elementId, value, emptyText) {
+      const element = document.getElementById(elementId);
+      if (value) {
+        element.textContent = value;
+        element.classList.remove('empty');
+      } else {
+        element.textContent = emptyText;
+        element.classList.add('empty');
+      }
+    }
+
+    document.getElementById('editBtn').addEventListener('click', () => {
+      document.getElementById('profileDisplay').classList.add('hidden');
+      document.getElementById('profileEdit').classList.add('active');
+
+      if (currentProfile && currentProfile.avatar_url && currentProfile.avatar_url.startsWith('data:image')) {
+        document.getElementById('avatarEditImage').src = currentProfile.avatar_url;
+      } else {
+        document.getElementById('avatarEditImage').src = '/assets/default-avatar-removebg.png';
+      }
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+      document.getElementById('profileDisplay').classList.remove('hidden');
+      document.getElementById('profileEdit').classList.remove('active');
+      if (currentProfile) {
+        document.getElementById('username').value = currentProfile.username || '';
+        document.getElementById('firstName').value = currentProfile.first_name || '';
+        document.getElementById('lastName').value = currentProfile.last_name || '';
+        document.getElementById('email').value = currentProfile.email || '';
+        document.getElementById('bio').value = currentProfile.bio || '';
+      }
+    });
+
+    let pendingAvatar = null;
+
+    document.getElementById('avatarInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        showMessage('Image size must not exceed 5MB', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        pendingAvatar = e.target.result;
+        document.getElementById('avatarEditImage').src = pendingAvatar;
+        showMessage('✅ Photo selected, click "Save" to confirm', 'success');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('profileForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const data = {
+        username: document.getElementById('username').value,
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        email: document.getElementById('email').value,
+        bio: document.getElementById('bio').value
+      };
+
+      if (pendingAvatar) {
+        data.avatarUrl = pendingAvatar;
+      }
+
+      fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          showMessage(data.error, 'error');
+          return;
+        }
+
+        showMessage('✅ Profile updated successfully!', 'success');
+        loadProfile();
+
+        pendingAvatar = null;
+        document.getElementById('avatarInput').value = '';
+
+        document.getElementById('profileDisplay').classList.remove('hidden');
+        document.getElementById('profileEdit').classList.remove('active');
+      })
+      .catch(err => {
+        showMessage('❌ Error saving profile', 'error');
+        console.error(err);
+      });
+    });
+
+    function showMessage(text, type) {
+      const msg = document.getElementById('message');
+      msg.textContent = text;
+      msg.className = 'message ' + type;
+      msg.style.display = 'block';
+
+      setTimeout(() => {
+        msg.style.display = 'none';
+      }, 5000);
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>
