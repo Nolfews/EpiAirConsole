@@ -57,6 +57,27 @@
         const html = await resp.text();
         const root = document.getElementById('navbar-root');
         root.innerHTML = html;
+
+        const token = localStorage.getItem('token');
+        const guestButtons = root.querySelectorAll('.guest-only');
+        const authButtons = root.querySelectorAll('.auth-only');
+
+        if (token) {
+          guestButtons.forEach(btn => btn.style.display = 'none');
+          authButtons.forEach(btn => btn.style.display = '');
+        } else {
+          guestButtons.forEach(btn => btn.style.display = '');
+          authButtons.forEach(btn => btn.style.display = 'none');
+        }
+
+        const logoutBtn = root.querySelector('#logoutBtn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.href = '/signin.html';
+          });
+        }
+        
         root.querySelectorAll('button[data-target]').forEach(btn=>{
           btn.addEventListener('click', ()=>{
             const target = btn.getAttribute('data-target');
@@ -340,7 +361,7 @@
       }
 
       function updateRoomUI() {
-        if (!roomData) return;
+        if (!roomData || !roomData.pin) return;
 
         const pin = roomData.pin;
         roomPinElement.textContent = '';
