@@ -11,3 +11,51 @@
     </div>
   </div>
 </nav>
+
+<script>
+(function() {
+  const token = localStorage.getItem('token');
+  const guestButtons = document.querySelectorAll('.guest-only');
+  const authButtons = document.querySelectorAll('.auth-only');
+
+  if (token) {
+    guestButtons.forEach(btn => btn.style.display = 'none');
+    authButtons.forEach(btn => btn.style.display = 'block');
+  } else {
+    guestButtons.forEach(btn => btn.style.display = 'block');
+    authButtons.forEach(btn => btn.style.display = 'none');
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = '/signin.html';
+    });
+  }
+})();
+</script>
+
+<script>
+(function() {
+  const token = localStorage.getItem('token');
+  const guestButtons = document.querySelectorAll('.guest-only');
+  const authButtons = document.querySelectorAll('.auth-only');
+
+  if (token) {
+    guestButtons.forEach(btn => btn.style.display = 'none');
+    authButtons.forEach(btn => btn.style.display = 'block');
+  } else {
+    guestButtons.forEach(btn => btn.style.display = 'block');
+    authButtons.forEach(btn => btn.style.display = 'none');
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = '/signin.html';
+    });
+  }
+})();
+</script>
