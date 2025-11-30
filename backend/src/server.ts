@@ -536,6 +536,7 @@ import { initDb } from './db';
 import authRouter from './auth';
 import friendsRouter from './friends';
 import profileRouter from './profile';
+import gamesRouter from './games';
 
 initDb().then(() => {
   console.log('Database initialized');
@@ -546,6 +547,7 @@ initDb().then(() => {
 app.use('/api/auth', authRouter);
 app.use('/api', friendsRouter);
 app.use('/api', profileRouter);
+app.use('/api/games', gamesRouter);
 
 httpServer.listen(port, host, () => {
   console.log(`Backend listening on http://${host}:${port}`);
