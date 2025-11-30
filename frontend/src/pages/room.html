@@ -69,8 +69,12 @@
           const friendsHtml = await friendsResp.text();
           const friendsRoot = document.getElementById('friends-root');
           friendsRoot.innerHTML = friendsHtml;
+        } else {
+          console.warn('Friends component not loaded');
         }
-      })();
+      })().catch(err => {
+        console.error('Error loading components:', err);
+      });
 
       const token = localStorage.getItem('token');
       if (!token) {
@@ -145,30 +149,44 @@
       }
 
       function connectSocket() {
-        fetch('/config.json').then(r => r.json()).then(cfg => {
-          try {
-            const serverUrl = cfg.serverUrl || window.location.origin;
-            socket = io(serverUrl + '/game', {
-              query: { token: token }
-            });
-            socket.on('connect', () => {
+        fetch('/config.json')
+          .then(r => r.json())
+          .then(cfg => {
+            try {
+              const serverUrl = cfg.serverUrl || window.location.origin;
+              socket = io(serverUrl + '/game', {
+                query: { token: token }
+              });
+              socket.on('connect', () => {
               console.log('Connected to socket server:', socket.id);
 
-              if (typeof FriendsClient === 'function') {
-                window.friendsManager = new FriendsClient();
-                window.friendsManager.token = token;
-                window.friendsManager.setupUI();
-                window.friendsManager.setSocket(socket);
-                window.friendsManager.loadFriends();
-                window.friendsManager.loadFriendRequests();
-                window.friendsManager.loadRoomInvitations();
+              try {
+                if (typeof FriendsClient === 'function') {
+                  window.friendsManager = new FriendsClient();
+                  window.friendsManager.token = token;
+                  window.friendsManager.setupUI();
+                  window.friendsManager.setSocket(socket);
+                  window.friendsManager.loadFriends();
+                  window.friendsManager.loadFriendRequests();
+                  window.friendsManager.loadRoomInvitations();
+                } else {
+                  console.warn('FriendsClient not available');
+                }
+              } catch (friendsError) {
+                console.error('Error initializing friends system:', friendsError);
               }
 
-              if (typeof GameController !== 'undefined' && GameController.RoomGameController) {
-                gameController = new GameController.RoomGameController('gameContainer', socket);
-                console.log('Game controller initialized');
+              try {
+                if (typeof GameController !== 'undefined' && GameController.RoomGameController) {
+                  gameController = new GameController.RoomGameController('gameContainer', socket);
+                  console.log('Game controller initialized');
 
-                setTimeout(() => displayGameCatalog(), 500);
+                  setTimeout(() => displayGameCatalog(), 500);
+                } else {
+                  console.error('GameController not available');
+                }
+              } catch (gameError) {
+                console.error('Error initializing game controller:', gameError);
               }
 
               if (roomPin) {
@@ -180,9 +198,40 @@
             setupSocketEvents();
           } catch (e) {
             console.error('Error during socket setup:', e);
+            showNotification('Connection error. Retrying...', 'error');
           }
-        }).catch(e => {
-          console.error('Could not load config:', e);
+        })
+        .catch(e => {
+          console.error('Could not load config, using default:', e);
+          try {
+            const serverUrl = window.location.origin;
+            socket = io(serverUrl + '/game', {
+              query: { token: token }
+            });
+            socket.on('connect', () => {
+              console.log('Connected to socket server (fallback):', socket.id);
+
+              try {
+                if (typeof GameController !== 'undefined' && GameController.RoomGameController) {
+                  gameController = new GameController.RoomGameController('gameContainer', socket);
+                  console.log('Game controller initialized');
+                  setTimeout(() => displayGameCatalog(), 500);
+                }
+              } catch (gameError) {
+                console.error('Error initializing game controller:', gameError);
+              }
+
+              if (roomPin) {
+                joinExistingRoom(roomPin);
+              } else {
+                createNewRoom();
+              }
+            });
+            setupSocketEvents();
+          } catch (fallbackError) {
+            console.error('Fallback connection failed:', fallbackError);
+            showNotification('Cannot connect to server', 'error');
+          }
         });
       }
 
