@@ -482,4 +482,102 @@ export async function getUserStats(userId: string) {
   };
 }
 
+export async function saveGameResult(userId: string, gameData: {
+  gameName: string;
+  result: 'win' | 'loss';
+  score: number;
+  duration: number;
+}) {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    await client.query(
+      `INSERT INTO game_history (user_id, game_name, result, score, duration)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, gameData.gameName, gameData.result, gameData.score, gameData.duration]
+    );
+
+    const statsResult = await client.query(
+      `SELECT * FROM user_profiles WHERE user_id = $1`,
+      [userId]
+    );
+
+    let stats = statsResult.rows[0];
+    if (!stats) {
+      await client.query(
+        `INSERT INTO user_profiles (user_id, total_games, total_wins, total_playtime, current_win_streak, best_win_streak, last_game_date)
+         VALUES ($1, 0, 0, 0, 0, 0, NOW())`,
+        [userId]
+      );
+      stats = {
+        total_games: 0,
+        total_wins: 0,
+        total_playtime: 0,
+        current_win_streak: 0,
+        best_win_streak: 0
+      };
+    }
+
+    const newTotalGames = stats.total_games + 1;
+    const newTotalWins = gameData.result === 'win' ? stats.total_wins + 1 : stats.total_wins;
+    const newTotalPlaytime = stats.total_playtime + gameData.duration;
+
+    let newCurrentStreak = stats.current_win_streak;
+    let newBestStreak = stats.best_win_streak;
+
+    if (gameData.result === 'win') {
+      newCurrentStreak++;
+      if (newCurrentStreak > newBestStreak) {
+        newBestStreak = newCurrentStreak;
+      }
+    } else {
+      newCurrentStreak = 0;
+    }
+
+    await client.query(
+      `UPDATE user_profiles
+       SET total_games = $1,
+           total_wins = $2,
+           total_playtime = $3,
+           current_win_streak = $4,
+           best_win_streak = $5,
+           last_game_date = NOW()
+       WHERE user_id = $6`,
+      [newTotalGames, newTotalWins, newTotalPlaytime, newCurrentStreak, newBestStreak, userId]
+    );
+
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      stats: {
+        total_games: newTotalGames,
+        total_wins: newTotalWins,
+        total_playtime: newTotalPlaytime,
+        current_win_streak: newCurrentStreak,
+        best_win_streak: newBestStreak
+      }
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getRecentGames(userId: string, limit: number = 10) {
+  const result = await pool.query(
+    `SELECT id, game_name, result, score, duration, played_at
+     FROM game_history
+     WHERE user_id = $1
+     ORDER BY played_at DESC
+     LIMIT $2`,
+    [userId, limit]
+  );
+  return result.rows;
+}
+
 export default pool;
