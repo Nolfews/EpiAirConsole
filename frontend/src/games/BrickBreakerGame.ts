@@ -40,6 +40,7 @@ export default class BrickBreakerGame extends BaseGame {
   private playersList: BrickBreakerPlayer[] = [];
   private scene?: Phaser.Scene;
   private localPlayerId?: string;
+  private gameStartTime: number = 0;
 
   constructor(containerId: string) {
     super(containerId, {
@@ -48,6 +49,11 @@ export default class BrickBreakerGame extends BaseGame {
       minPlayers: 1,
       maxPlayers: 4,
     });
+  }
+
+  start(): void {
+    this.gameStartTime = Date.now();
+    super.start();
   }
 
   public createPhaserConfig(): Phaser.Types.Core.GameConfig {
@@ -290,6 +296,9 @@ export default class BrickBreakerGame extends BaseGame {
       player.lives!--;
       if (player.lives! <= 0) {
         player.isGameOver = true;
+        if (player.id === this.localPlayerId) {
+          this.sendGameResult(player.score || 0);
+        }
       } else {
         player.ballX = GAME_WIDTH / 2;
         player.ballY = GAME_HEIGHT / 2;
@@ -469,5 +478,58 @@ export default class BrickBreakerGame extends BaseGame {
     });
     this.players.clear();
     this.playersList = [];
+  }
+
+  private async sendGameResult(score: number): Promise<void> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('❌ No token found, skipping game result save');
+      return;
+    }
+
+    const duration = Math.floor((Date.now() - this.gameStartTime) / 1000);
+
+    const result = score > 500 ? 'win' : 'loss';
+
+    const gameData = {
+      gameName: 'Brick Breaker',
+      result,
+      score,
+      duration
+    };
+
+    console.log('🎮 GAME OVER - Brick Breaker - Sending result to server:');
+    console.log('  Game:', gameData.gameName);
+    console.log('  Result:', gameData.result);
+    console.log('  Score:', gameData.score);
+    console.log('  Duration:', gameData.duration, 'seconds');
+
+    try {
+      const response = await fetch('/api/games/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(gameData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Failed to save game result:', errorText);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('✅ Game result saved successfully!');
+      console.log('📊 Updated stats:', result.stats);
+      console.log('  Total games:', result.stats.total_games);
+      console.log('  Total wins:', result.stats.total_wins);
+      console.log('  Total playtime:', result.stats.total_playtime, 'seconds');
+      console.log('  Current streak:', result.stats.current_win_streak);
+      console.log('  Best streak:', result.stats.best_win_streak);
+    } catch (error) {
+      console.error('Error sending game result:', error);
+    }
   }
 }
