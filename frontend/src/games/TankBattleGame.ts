@@ -42,6 +42,8 @@ export class TankBattleGame extends BaseGame {
   private winnerText?: Phaser.GameObjects.Text;
   private gameEnded: boolean = false;
   private helpPanelElement?: HTMLElement;
+  private gameStartTime: number = 0;
+  private localPlayerId: string | null = null;
 
   private playerColors = [
     0x00ff00,
@@ -58,6 +60,15 @@ export class TankBattleGame extends BaseGame {
       maxPlayers: 4
     };
     super(containerId, config);
+  }
+
+  start(): void {
+    this.gameStartTime = Date.now();
+    super.start();
+  }
+
+  setLocalPlayerId(playerId: string): void {
+    this.localPlayerId = playerId;
   }
 
   createPhaserConfig(): Phaser.Types.Core.GameConfig {
@@ -422,6 +433,13 @@ export class TankBattleGame extends BaseGame {
       padding: { x: 30, y: 20 },
       align: 'center'
     }).setOrigin(0.5).setDepth(200);
+
+    this.tankPlayers.forEach(player => {
+      if (player.id === this.localPlayerId) {
+        const result = player.id === winner.id ? 'win' : 'loss';
+        this.sendGameResult(result, player.kills);
+      }
+    });
   }
 
   private showDraw(): void {
@@ -436,6 +454,62 @@ export class TankBattleGame extends BaseGame {
       padding: { x: 30, y: 20 },
       align: 'center'
     }).setOrigin(0.5).setDepth(200);
+
+    const localPlayer = this.tankPlayers.get(this.localPlayerId || '');
+    if (localPlayer) {
+      this.sendGameResult('loss', localPlayer.kills);
+    }
+  }
+
+  private async sendGameResult(result: 'win' | 'loss', score: number): Promise<void> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('❌ No token found, skipping game result save');
+      return;
+    }
+
+    const duration = Math.floor((Date.now() - this.gameStartTime) / 1000);
+
+    const gameData = {
+      gameName: 'Tank Battle',
+      result,
+      score,
+      duration
+    };
+
+    console.log('🎮 GAME OVER - Tank Battle - Sending result to server:');
+    console.log('  Game:', gameData.gameName);
+    console.log('  Result:', gameData.result);
+    console.log('  Score (kills):', gameData.score);
+    console.log('  Duration:', gameData.duration, 'seconds');
+
+    try {
+      const response = await fetch('/api/games/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(gameData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Failed to save game result:', errorText);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('✅ Game result saved successfully!');
+      console.log('📊 Updated stats:', result.stats);
+      console.log('  Total games:', result.stats.total_games);
+      console.log('  Total wins:', result.stats.total_wins);
+      console.log('  Total playtime:', result.stats.total_playtime, 'seconds');
+      console.log('  Current streak:', result.stats.current_win_streak);
+      console.log('  Best streak:', result.stats.best_win_streak);
+    } catch (error) {
+      console.error('Error sending game result:', error);
+    }
   }
 
   private updateStatus(): void {
