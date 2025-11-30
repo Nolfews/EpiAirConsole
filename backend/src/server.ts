@@ -38,6 +38,10 @@ app.get('/room.html', (_req, res) => {
   res.sendFile(join(frontendPagesPath, 'room.html'));
 });
 
+app.get('/profile.html', (_req, res) => {
+  res.sendFile(join(frontendPagesPath, 'profile.html'));
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
@@ -531,6 +535,7 @@ const host = process.env.HOST || '0.0.0.0';
 import { initDb } from './db';
 import authRouter from './auth';
 import friendsRouter from './friends';
+import profileRouter from './profile';
 
 initDb().then(() => {
   console.log('Database initialized');
@@ -540,6 +545,7 @@ initDb().then(() => {
 
 app.use('/api/auth', authRouter);
 app.use('/api', friendsRouter);
+app.use('/api', profileRouter);
 
 httpServer.listen(port, host, () => {
   console.log(`Backend listening on http://${host}:${port}`);
