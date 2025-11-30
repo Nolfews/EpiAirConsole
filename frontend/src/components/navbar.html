@@ -1,10 +1,13 @@
 <nav class="nav">
   <div class="nav-inner">
     <div class="brand">EpiAirConsole</div>
-    <div class="links">
-      <button data-target="/">Home</button>
-      <button data-target="/signin.html">Sign in</button>
-      <button data-target="/signup.html">Sign up</button>
+    <div class="links" id="navLinks">
+      <button data-target="/" class="guest-only">Home</button>
+      <button data-target="/signin.html" class="guest-only">Sign in</button>
+      <button data-target="/signup.html" class="guest-only">Sign up</button>
+      <button data-target="/" class="auth-only" style="display: none;">Home</button>
+      <button data-target="/profile.html" class="auth-only" style="display: none;">Profile</button>
+      <button id="logoutBtn" class="auth-only" style="display: none;">Logout</button>
     </div>
   </div>
 </nav>
