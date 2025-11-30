@@ -84,7 +84,8 @@
         const token = localStorage.getItem('token');
 
           if(token) {
-            socket = io(config.serverUrl + '/game', {
+            const serverUrl = window.location.origin;
+            socket = io(serverUrl + '/game', {
                 query: {
                     token: token
                 }
