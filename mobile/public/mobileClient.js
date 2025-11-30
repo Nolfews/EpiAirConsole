@@ -290,7 +290,7 @@
 
       joystickInterval = setInterval(() => {
         sendJoystickInput(currentJoystickX, currentJoystickY);
-      }, 50);
+      }, 150);
     });
 
     joystickBase.addEventListener('touchmove', (e) => {
@@ -312,7 +312,7 @@
 
       joystickInterval = setInterval(() => {
         sendJoystickInput(currentJoystickX, currentJoystickY);
-      }, 50);
+      }, 150);
     });
 
     document.addEventListener('mousemove', (e) => {
