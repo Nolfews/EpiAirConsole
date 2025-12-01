@@ -7,8 +7,9 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-
-app.use(express.json());
+// Augmenter la limite pour les images en base64
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 import { join } from 'path';
 
