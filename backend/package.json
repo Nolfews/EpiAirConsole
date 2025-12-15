@@ -8,6 +8,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "migrate:profile": "ts-node src/migrate-profile.ts",
     "migrate:game-history": "ts-node src/migrate-game-history.ts",
+    "migrate:achievements": "ts-node src/migrate-achievements.ts",
+    "migrate:achievements-quiz": "ts-node src/migrate-achievements-quiz.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
