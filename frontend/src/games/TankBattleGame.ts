@@ -474,7 +474,8 @@ export class TankBattleGame extends BaseGame {
       gameName: 'Tank Battle',
       result,
       score,
-      duration
+      duration,
+      kills: score  // Ajouter les kills pour les stats Tank Battle
     };
 
     console.log('🎮 GAME OVER - Tank Battle - Sending result to server:');
@@ -507,8 +508,35 @@ export class TankBattleGame extends BaseGame {
       console.log('  Total playtime:', result.stats.total_playtime, 'seconds');
       console.log('  Current streak:', result.stats.current_win_streak);
       console.log('  Best streak:', result.stats.best_win_streak);
+      
+      // Vérifier les trophées après avoir sauvegardé les stats
+      await this.checkAchievements();
     } catch (error) {
       console.error('Error sending game result:', error);
+    }
+  }
+
+  private async checkAchievements(): Promise<void> {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/achievements/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.newlyUnlocked && result.newlyUnlocked.length > 0) {
+          console.log('🏆 NEW ACHIEVEMENTS UNLOCKED:', result.newlyUnlocked);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking achievements:', error);
     }
   }
 
