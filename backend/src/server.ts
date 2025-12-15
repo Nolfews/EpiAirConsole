@@ -43,6 +43,10 @@ app.get('/profile.html', (_req, res) => {
   res.sendFile(join(frontendPagesPath, 'profile.html'));
 });
 
+app.get('/achievements.html', (_req, res) => {
+  res.sendFile(join(frontendPagesPath, 'achievements.html'));
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
@@ -538,6 +542,7 @@ import authRouter from './auth';
 import friendsRouter from './friends';
 import profileRouter from './profile';
 import gamesRouter from './games';
+import achievementsRouter from './achievements';
 
 initDb().then(() => {
   console.log('Database initialized');
@@ -549,6 +554,7 @@ app.use('/api/auth', authRouter);
 app.use('/api', friendsRouter);
 app.use('/api', profileRouter);
 app.use('/api/games', gamesRouter);
+app.use('/api/achievements', achievementsRouter);
 
 httpServer.listen(port, host, () => {
   console.log(`Backend listening on http://${host}:${port}`);
