@@ -3,12 +3,14 @@ import { SimpleGameExample } from './SimpleGameExample';
 import { TetrisGame } from './TetrisGame';
 import { TankBattleGame } from './TankBattleGame';
 import BrickBreakerGame from './BrickBreakerGame';
+import KahootGame from './KahootGame';
 
 export const AVAILABLE_GAMES = {
   'simple-example': SimpleGameExample,
   'tetris': TetrisGame,
   'tank-battle': TankBattleGame,
   'brick-breaker': BrickBreakerGame,
+  'quiz-battle': KahootGame,
 } as const;
 
 export type GameType = keyof typeof AVAILABLE_GAMES;
