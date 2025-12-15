@@ -11,6 +11,8 @@ const pool = new Pool({
   database: process.env.DB_NAME || undefined,
 });
 
+export { pool }; // Export pool for use in other modules
+
 export async function initDb() {
   // Table users
   const usersTable = `
@@ -487,6 +489,9 @@ export async function saveGameResult(userId: string, gameData: {
   result: 'win' | 'loss';
   score: number;
   duration: number;
+  kills?: number;  // Pour Tank Battle
+  lines?: number;  // Pour Tetris
+  correct?: number; // For Quiz
 }) {
   const client = await pool.connect();
 
@@ -516,7 +521,12 @@ export async function saveGameResult(userId: string, gameData: {
         total_wins: 0,
         total_playtime: 0,
         current_win_streak: 0,
-        best_win_streak: 0
+        best_win_streak: 0,
+        tetris_high_score: 0,
+        tetris_total_lines: 0,
+        tank_total_kills: 0,
+        tank_total_deaths: 0,
+        brick_breaker_high_score: 0
       };
     }
 
@@ -536,6 +546,38 @@ export async function saveGameResult(userId: string, gameData: {
       newCurrentStreak = 0;
     }
 
+    // Mettre à jour les stats spécifiques par jeu
+    let gameSpecificUpdate = '';
+    const gameSpecificValues: any[] = [];
+    
+    if (gameData.gameName.toLowerCase().includes('tetris')) {
+      const newTetrisHighScore = Math.max(stats.tetris_high_score || 0, gameData.score);
+      const newTetrisLines = (stats.tetris_total_lines || 0) + (gameData.lines || 0);
+      gameSpecificUpdate = `, tetris_high_score = $7, tetris_total_lines = $8`;
+      gameSpecificValues.push(newTetrisHighScore, newTetrisLines);
+    } else if (gameData.gameName.toLowerCase().includes('tank')) {
+      const newTankKills = (stats.tank_total_kills || 0) + (gameData.kills || 0);
+      const newTankDeaths = (stats.tank_total_deaths || 0) + (gameData.result === 'loss' ? 1 : 0);
+      gameSpecificUpdate = `, tank_total_kills = $7, tank_total_deaths = $8`;
+      gameSpecificValues.push(newTankKills, newTankDeaths);
+    } else if (gameData.gameName.toLowerCase().includes('brick')) {
+      const newBrickHighScore = Math.max(stats.brick_breaker_high_score || 0, gameData.score);
+      gameSpecificUpdate = `, brick_breaker_high_score = $7`;
+      gameSpecificValues.push(newBrickHighScore);
+    }
+
+    // Quiz-specific: increment total correct answers
+    if (gameData.gameName.toLowerCase().includes('quiz') || gameData.gameName.toLowerCase().includes('quiz battle')) {
+      const newQuizCorrect = (stats.quiz_total_correct || 0) + (gameData.correct || 0);
+      if (gameSpecificUpdate) {
+        // append additional updates
+        gameSpecificUpdate += `, quiz_total_correct = $${7 + gameSpecificValues.length}`;
+      } else {
+        gameSpecificUpdate = `, quiz_total_correct = $7`;
+      }
+      gameSpecificValues.push(newQuizCorrect);
+    }
+
     await client.query(
       `UPDATE user_profiles
        SET total_games = $1,
@@ -544,8 +586,9 @@ export async function saveGameResult(userId: string, gameData: {
            current_win_streak = $4,
            best_win_streak = $5,
            last_game_date = NOW()
+           ${gameSpecificUpdate}
        WHERE user_id = $6`,
-      [newTotalGames, newTotalWins, newTotalPlaytime, newCurrentStreak, newBestStreak, userId]
+      [newTotalGames, newTotalWins, newTotalPlaytime, newCurrentStreak, newBestStreak, userId, ...gameSpecificValues]
     );
 
     await client.query('COMMIT');
