@@ -27,6 +27,7 @@ interface Bomb {
   range: number;
   timer: number;
   playerId: string;
+  id: string;
 }
 
 interface PowerUp {
@@ -61,6 +62,7 @@ class BombermanScene extends Phaser.Scene {
   private gameOver = false;
   private winnerText?: Phaser.GameObjects.Text;
   private localPlayerId: string = '';
+  private mapSeed: number = 12345;
 
   constructor(gameInstance: BombermanGame) {
     super({ key: 'BombermanScene' });
@@ -88,7 +90,14 @@ class BombermanScene extends Phaser.Scene {
     });
   }
 
+  private seededRandom(): number {
+    this.mapSeed = (this.mapSeed * 9301 + 49297) % 233280;
+    return this.mapSeed / 233280;
+  }
+
   private generateMap() {
+    this.mapSeed = 12345;
+
     for (let y = 0; y < GRID_SIZE; y++) {
       this.grid[y] = [];
       for (let x = 0; x < GRID_SIZE; x++) {
@@ -111,7 +120,7 @@ class BombermanScene extends Phaser.Scene {
             (x <= 2 && y >= GRID_SIZE - 3) ||
             (x >= GRID_SIZE - 3 && y >= GRID_SIZE - 3);
 
-          if (!isSpawnZone && Math.random() < 0.5) {
+          if (!isSpawnZone && this.seededRandom() < 0.5) {
             this.grid[y][x] = 2;
           }
         }
@@ -147,7 +156,10 @@ class BombermanScene extends Phaser.Scene {
 
   private spawnPlayers() {
     let playerIndex = 0;
-    this.gameInstance.getPlayers().forEach((player, playerId) => {
+    const sortedPlayers = Array.from(this.gameInstance.getPlayers().entries())
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+    sortedPlayers.forEach(([playerId, player]) => {
       if (playerIndex < 4) {
         const spawn = SPAWN_POSITIONS[playerIndex];
         const color = PLAYER_COLORS[playerIndex];
@@ -182,12 +194,14 @@ class BombermanScene extends Phaser.Scene {
 
         this.add.text(
           spawn.x * TILE_SIZE + TILE_SIZE / 2,
-          spawn.y * TILE_SIZE + TILE_SIZE / 2,
-          `${playerIndex + 1}`,
+          spawn.y * TILE_SIZE + TILE_SIZE / 2 - TILE_SIZE,
+          player.username || `P${playerIndex + 1}`,
           {
-            fontSize: '20px',
+            fontSize: '14px',
             color: '#fff',
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            backgroundColor: '#000',
+            padding: { x: 4, y: 2 }
           }
         ).setOrigin(0.5);
 
@@ -205,12 +219,22 @@ class BombermanScene extends Phaser.Scene {
     if (this.gameOver) return;
 
     const player = this.players.get(playerId);
-    if (!player || !player.alive) return;
+    if (!player) {
+      console.error(`❌ handleInput: Player ${playerId} not found in players map`);
+      console.log('Available players:', Array.from(this.players.keys()));
+      return;
+    }
+
+    if (!player.alive) {
+      console.log(`⚰️ Player ${player.username} is dead, ignoring input`);
+      return;
+    }
 
     const now = Date.now();
     const lastTime = this.lastInputTime.get(playerId) || 0;
 
     if (action === 'action' && now - lastTime >= 100) {
+      console.log(`🎮 ACTION button pressed by ${player.username}`);
       this.placeBomb(player);
       this.lastInputTime.set(playerId, now);
     } else if (action === 'joystick' && now - lastTime >= this.inputCooldown) {
@@ -253,10 +277,18 @@ class BombermanScene extends Phaser.Scene {
   }
 
   private placeBomb(player: BombermanPlayer) {
-    if (player.bombCount >= player.maxBombs) return;
+    console.log(`🔍 ${player.username} attempting to place bomb - Current count: ${player.bombCount}/${player.maxBombs}`);
+
+    if (player.bombCount >= player.maxBombs) {
+      console.log(`⚠️ ${player.username} at max bombs (${player.bombCount}/${player.maxBombs}) - BLOCKED`);
+      return;
+    }
 
     const existingBomb = this.bombs.find(b => b.gridX === player.x && b.gridY === player.y);
-    if (existingBomb) return;
+    if (existingBomb) {
+      console.log(`⚠️ Already a bomb at (${player.x},${player.y})`);
+      return;
+    }
 
     const bombSprite = this.add.sprite(
       player.x * TILE_SIZE + TILE_SIZE / 2,
@@ -274,17 +306,21 @@ class BombermanScene extends Phaser.Scene {
 
     bombSprite.setTexture('bomb');
 
+    const bombId = `${player.x}_${player.y}_${Date.now()}`;
+
     const bomb: Bomb = {
       sprite: bombSprite,
       gridX: player.x,
       gridY: player.y,
       range: player.bombRange,
       timer: BOMB_TIMER,
-      playerId: player.id
+      playerId: player.id,
+      id: bombId
     };
 
     this.bombs.push(bomb);
     player.bombCount++;
+    console.log(`💣 ${player.username} placed bomb at (${bomb.gridX},${bomb.gridY}) - ID: ${bombId} - Count: ${player.bombCount}/${player.maxBombs}`);
 
     this.tweens.add({
       targets: bombSprite,
@@ -312,11 +348,17 @@ class BombermanScene extends Phaser.Scene {
   }
 
   private explodeBomb(bomb: Bomb) {
+    console.log(`💥 Bomb ${bomb.id} exploded at (${bomb.gridX},${bomb.gridY})`);
     bomb.sprite.destroy();
 
     const player = this.players.get(bomb.playerId);
     if (player) {
+      console.log(`   ├─ BEFORE decrement: ${player.username} has ${player.bombCount} bombs`);
       player.bombCount--;
+      console.log(`   └─ AFTER decrement: ${player.username} now has ${player.bombCount}/${player.maxBombs} bombs`);
+    } else {
+      console.error(`❌ Could not find player ${bomb.playerId} to decrement bomb count!`);
+      console.error(`   Available players:`, Array.from(this.players.keys()));
     }
 
     const explosionCells: { x: number, y: number }[] = [{ x: bomb.gridX, y: bomb.gridY }];
@@ -348,6 +390,7 @@ class BombermanScene extends Phaser.Scene {
           this.tiles[y][x].setFillStyle(0x222222);
 
           if (Math.random() < 0.2) {
+            this.mapSeed = (x * 1000 + y);
             this.spawnPowerUp(x, y);
           }
           break;
@@ -395,7 +438,7 @@ class BombermanScene extends Phaser.Scene {
   }
 
   private spawnPowerUp(x: number, y: number) {
-    const type = Math.random() < 0.5 ? 'bomb' : 'range';
+    const type = this.seededRandom() < 0.5 ? 'bomb' : 'range';
     const color = type === 'bomb' ? 0x00ffff : 0xff00ff;
 
     const sprite = this.add.sprite(
