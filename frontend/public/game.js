@@ -31,9 +31,9 @@ var GameController = (() => {
   ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // node_modules/phaser/dist/phaser.js
+  // frontend/node_modules/phaser/dist/phaser.js
   var require_phaser = __commonJS({
-    "node_modules/phaser/dist/phaser.js"(exports, module) {
+    "frontend/node_modules/phaser/dist/phaser.js"(exports, module) {
       (function webpackUniversalModuleDefinition(root, factory) {
         if (typeof exports === "object" && typeof module === "object")
           module.exports = factory();
@@ -139171,13 +139171,13 @@ var GameController = (() => {
     }
   });
 
-  // src/RoomGameController.ts
+  // frontend/src/RoomGameController.ts
   var RoomGameController_exports = {};
   __export(RoomGameController_exports, {
     RoomGameController: () => RoomGameController
   });
 
-  // src/games/BaseGame.ts
+  // frontend/src/games/BaseGame.ts
   var import_phaser = __toESM(require_phaser());
   var BaseGame = class {
     constructor(containerId, gameConfig) {
@@ -139218,7 +139218,7 @@ var GameController = (() => {
     }
   };
 
-  // src/games/SimpleGameExample.ts
+  // frontend/src/games/SimpleGameExample.ts
   var import_phaser2 = __toESM(require_phaser());
   var SimpleGameExample = class extends BaseGame {
     constructor(containerId) {
@@ -139347,7 +139347,7 @@ var GameController = (() => {
     }
   };
 
-  // src/games/TetrisGame.ts
+  // frontend/src/games/TetrisGame.ts
   var import_phaser3 = __toESM(require_phaser());
   var TETROMINOS = {
     I: {
@@ -140038,7 +140038,7 @@ var GameController = (() => {
     }
   };
 
-  // src/games/TankBattleGame.ts
+  // frontend/src/games/TankBattleGame.ts
   var import_phaser4 = __toESM(require_phaser());
   var GAME_WIDTH = 1200;
   var GAME_HEIGHT = 920;
@@ -140572,7 +140572,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // src/games/BrickBreakerGame.ts
+  // frontend/src/games/BrickBreakerGame.ts
   var import_phaser5 = __toESM(require_phaser());
   var GAME_WIDTH2 = 600;
   var GAME_HEIGHT2 = 800;
@@ -141024,7 +141024,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // src/games/KahootGame.ts
+  // frontend/src/games/KahootGame.ts
   var import_phaser6 = __toESM(require_phaser());
   var QUESTION_BANK = [
     { q: "What is the capital of France?", choices: ["Paris", "London", "Rome", "Berlin"], a: 0 },
@@ -141388,7 +141388,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // src/games/BombermanGame.ts
+  // frontend/src/games/BombermanGame.ts
   var import_phaser7 = __toESM(require_phaser());
   var GAME_CONFIG = {
     name: "Bomberman Battle",
@@ -141403,13 +141403,9 @@ ${winner.kills} \xE9limination(s)`,
   var PLAYER_COLORS = [16711680, 65280, 255, 16776960];
   var SPAWN_POSITIONS = [
     { x: 1, y: 1 },
-    // Top-left
     { x: GRID_SIZE - 2, y: 1 },
-    // Top-right
     { x: 1, y: GRID_SIZE - 2 },
-    // Bottom-left
     { x: GRID_SIZE - 2, y: GRID_SIZE - 2 }
-    // Bottom-right
   ];
   var BombermanScene = class extends import_phaser7.default.Scene {
     constructor(gameInstance) {
@@ -141423,6 +141419,7 @@ ${winner.kills} \xE9limination(s)`,
       this.inputCooldown = 50;
       this.gameOver = false;
       this.localPlayerId = "";
+      this.mapSeed = 12345;
       this.gameInstance = gameInstance;
     }
     create() {
@@ -141443,7 +141440,13 @@ ${winner.kills} \xE9limination(s)`,
         fontFamily: "Arial"
       });
     }
+    // Seeded random number generator for consistent maps across clients
+    seededRandom() {
+      this.mapSeed = (this.mapSeed * 9301 + 49297) % 233280;
+      return this.mapSeed / 233280;
+    }
     generateMap() {
+      this.mapSeed = 12345;
       for (let y = 0; y < GRID_SIZE; y++) {
         this.grid[y] = [];
         for (let x = 0; x < GRID_SIZE; x++) {
@@ -141459,11 +141462,8 @@ ${winner.kills} \xE9limination(s)`,
       for (let y = 1; y < GRID_SIZE - 1; y++) {
         for (let x = 1; x < GRID_SIZE - 1; x++) {
           if (this.grid[y][x] === 0) {
-            const isSpawnZone = x <= 2 && y <= 2 || // Top-left
-            x >= GRID_SIZE - 3 && y <= 2 || // Top-right
-            x <= 2 && y >= GRID_SIZE - 3 || // Bottom-left
-            x >= GRID_SIZE - 3 && y >= GRID_SIZE - 3;
-            if (!isSpawnZone && Math.random() < 0.5) {
+            const isSpawnZone = x <= 2 && y <= 2 || x >= GRID_SIZE - 3 && y <= 2 || x <= 2 && y >= GRID_SIZE - 3 || x >= GRID_SIZE - 3 && y >= GRID_SIZE - 3;
+            if (!isSpawnZone && this.seededRandom() < 0.5) {
               this.grid[y][x] = 2;
             }
           }
@@ -141495,7 +141495,8 @@ ${winner.kills} \xE9limination(s)`,
     }
     spawnPlayers() {
       let playerIndex = 0;
-      this.gameInstance.getPlayers().forEach((player, playerId) => {
+      const sortedPlayers = Array.from(this.gameInstance.getPlayers().entries()).sort((a, b) => a[0].localeCompare(b[0]));
+      sortedPlayers.forEach(([playerId, player]) => {
         if (playerIndex < 4) {
           const spawn = SPAWN_POSITIONS[playerIndex];
           const color = PLAYER_COLORS[playerIndex];
@@ -141525,12 +141526,14 @@ ${winner.kills} \xE9limination(s)`,
           bombermanPlayer.sprite = sprite;
           this.add.text(
             spawn.x * TILE_SIZE + TILE_SIZE / 2,
-            spawn.y * TILE_SIZE + TILE_SIZE / 2,
-            `${playerIndex + 1}`,
+            spawn.y * TILE_SIZE + TILE_SIZE / 2 - TILE_SIZE,
+            player.username || `P${playerIndex + 1}`,
             {
-              fontSize: "20px",
+              fontSize: "14px",
               color: "#fff",
-              fontStyle: "bold"
+              fontStyle: "bold",
+              backgroundColor: "#000",
+              padding: { x: 4, y: 2 }
             }
           ).setOrigin(0.5);
           this.players.set(playerId, bombermanPlayer);
@@ -141544,10 +141547,19 @@ ${winner.kills} \xE9limination(s)`,
     handleInput(playerId, action, data) {
       if (this.gameOver) return;
       const player = this.players.get(playerId);
-      if (!player || !player.alive) return;
+      if (!player) {
+        console.error(`\u274C handleInput: Player ${playerId} not found in players map`);
+        console.log("Available players:", Array.from(this.players.keys()));
+        return;
+      }
+      if (!player.alive) {
+        console.log(`\u26B0\uFE0F Player ${player.username} is dead, ignoring input`);
+        return;
+      }
       const now = Date.now();
       const lastTime = this.lastInputTime.get(playerId) || 0;
       if (action === "action" && now - lastTime >= 100) {
+        console.log(`\u{1F3AE} ACTION button pressed by ${player.username}`);
         this.placeBomb(player);
         this.lastInputTime.set(playerId, now);
       } else if (action === "joystick" && now - lastTime >= this.inputCooldown) {
@@ -141585,9 +141597,16 @@ ${winner.kills} \xE9limination(s)`,
       }
     }
     placeBomb(player) {
-      if (player.bombCount >= player.maxBombs) return;
+      console.log(`\u{1F50D} ${player.username} attempting to place bomb - Current count: ${player.bombCount}/${player.maxBombs}`);
+      if (player.bombCount >= player.maxBombs) {
+        console.log(`\u26A0\uFE0F ${player.username} at max bombs (${player.bombCount}/${player.maxBombs}) - BLOCKED`);
+        return;
+      }
       const existingBomb = this.bombs.find((b) => b.gridX === player.x && b.gridY === player.y);
-      if (existingBomb) return;
+      if (existingBomb) {
+        console.log(`\u26A0\uFE0F Already a bomb at (${player.x},${player.y})`);
+        return;
+      }
       const bombSprite = this.add.sprite(
         player.x * TILE_SIZE + TILE_SIZE / 2,
         player.y * TILE_SIZE + TILE_SIZE / 2,
@@ -141601,16 +141620,19 @@ ${winner.kills} \xE9limination(s)`,
       graphics.generateTexture("bomb", TILE_SIZE, TILE_SIZE);
       graphics.destroy();
       bombSprite.setTexture("bomb");
+      const bombId = `${player.x}_${player.y}_${Date.now()}`;
       const bomb = {
         sprite: bombSprite,
         gridX: player.x,
         gridY: player.y,
         range: player.bombRange,
         timer: BOMB_TIMER,
-        playerId: player.id
+        playerId: player.id,
+        id: bombId
       };
       this.bombs.push(bomb);
       player.bombCount++;
+      console.log(`\u{1F4A3} ${player.username} placed bomb at (${bomb.gridX},${bomb.gridY}) - ID: ${bombId} - Count: ${player.bombCount}/${player.maxBombs}`);
       this.tweens.add({
         targets: bombSprite,
         scale: { from: 1, to: 1.2 },
@@ -141632,10 +141654,16 @@ ${winner.kills} \xE9limination(s)`,
       this.checkWinCondition();
     }
     explodeBomb(bomb) {
+      console.log(`\u{1F4A5} Bomb ${bomb.id} exploded at (${bomb.gridX},${bomb.gridY})`);
       bomb.sprite.destroy();
       const player = this.players.get(bomb.playerId);
       if (player) {
+        console.log(`   \u251C\u2500 BEFORE decrement: ${player.username} has ${player.bombCount} bombs`);
         player.bombCount--;
+        console.log(`   \u2514\u2500 AFTER decrement: ${player.username} now has ${player.bombCount}/${player.maxBombs} bombs`);
+      } else {
+        console.error(`\u274C Could not find player ${bomb.playerId} to decrement bomb count!`);
+        console.error(`   Available players:`, Array.from(this.players.keys()));
       }
       const explosionCells = [{ x: bomb.gridX, y: bomb.gridY }];
       const directions = [
@@ -141658,6 +141686,7 @@ ${winner.kills} \xE9limination(s)`,
             this.grid[y][x] = 0;
             this.tiles[y][x].setFillStyle(2236962);
             if (Math.random() < 0.2) {
+              this.mapSeed = x * 1e3 + y;
               this.spawnPowerUp(x, y);
             }
             break;
@@ -141699,7 +141728,7 @@ ${winner.kills} \xE9limination(s)`,
       });
     }
     spawnPowerUp(x, y) {
-      const type = Math.random() < 0.5 ? "bomb" : "range";
+      const type = this.seededRandom() < 0.5 ? "bomb" : "range";
       const color = type === "bomb" ? 65535 : 16711935;
       const sprite = this.add.sprite(
         x * TILE_SIZE + TILE_SIZE / 2,
@@ -141869,7 +141898,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // src/games/GameManager.ts
+  // frontend/src/games/GameManager.ts
   var AVAILABLE_GAMES = {
     "simple-example": SimpleGameExample,
     "tetris": TetrisGame,
@@ -141931,7 +141960,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // src/RoomGameController.ts
+  // frontend/src/RoomGameController.ts
   var RoomGameController = class {
     constructor(containerId, socket) {
       this.selectedGameType = null;
