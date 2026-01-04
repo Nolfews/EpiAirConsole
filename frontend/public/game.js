@@ -31,9 +31,9 @@ var GameController = (() => {
   ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // frontend/node_modules/phaser/dist/phaser.js
+  // node_modules/phaser/dist/phaser.js
   var require_phaser = __commonJS({
-    "frontend/node_modules/phaser/dist/phaser.js"(exports, module) {
+    "node_modules/phaser/dist/phaser.js"(exports, module) {
       (function webpackUniversalModuleDefinition(root, factory) {
         if (typeof exports === "object" && typeof module === "object")
           module.exports = factory();
@@ -139171,13 +139171,13 @@ var GameController = (() => {
     }
   });
 
-  // frontend/src/RoomGameController.ts
+  // src/RoomGameController.ts
   var RoomGameController_exports = {};
   __export(RoomGameController_exports, {
     RoomGameController: () => RoomGameController
   });
 
-  // frontend/src/games/BaseGame.ts
+  // src/games/BaseGame.ts
   var import_phaser = __toESM(require_phaser());
   var BaseGame = class {
     constructor(containerId, gameConfig) {
@@ -139218,7 +139218,7 @@ var GameController = (() => {
     }
   };
 
-  // frontend/src/games/SimpleGameExample.ts
+  // src/games/SimpleGameExample.ts
   var import_phaser2 = __toESM(require_phaser());
   var SimpleGameExample = class extends BaseGame {
     constructor(containerId) {
@@ -139347,7 +139347,7 @@ var GameController = (() => {
     }
   };
 
-  // frontend/src/games/TetrisGame.ts
+  // src/games/TetrisGame.ts
   var import_phaser3 = __toESM(require_phaser());
   var TETROMINOS = {
     I: {
@@ -140038,7 +140038,7 @@ var GameController = (() => {
     }
   };
 
-  // frontend/src/games/TankBattleGame.ts
+  // src/games/TankBattleGame.ts
   var import_phaser4 = __toESM(require_phaser());
   var GAME_WIDTH = 1200;
   var GAME_HEIGHT = 920;
@@ -140572,7 +140572,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // frontend/src/games/BrickBreakerGame.ts
+  // src/games/BrickBreakerGame.ts
   var import_phaser5 = __toESM(require_phaser());
   var GAME_WIDTH2 = 600;
   var GAME_HEIGHT2 = 800;
@@ -141024,7 +141024,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // frontend/src/games/KahootGame.ts
+  // src/games/KahootGame.ts
   var import_phaser6 = __toESM(require_phaser());
   var QUESTION_BANK = [
     { q: "What is the capital of France?", choices: ["Paris", "London", "Rome", "Berlin"], a: 0 },
@@ -141388,7 +141388,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // frontend/src/games/BombermanGame.ts
+  // src/games/BombermanGame.ts
   var import_phaser7 = __toESM(require_phaser());
   var GAME_CONFIG = {
     name: "Bomberman Battle",
@@ -141440,7 +141440,6 @@ ${winner.kills} \xE9limination(s)`,
         fontFamily: "Arial"
       });
     }
-    // Seeded random number generator for consistent maps across clients
     seededRandom() {
       this.mapSeed = (this.mapSeed * 9301 + 49297) % 233280;
       return this.mapSeed / 233280;
@@ -141737,7 +141736,13 @@ ${winner.kills} \xE9limination(s)`,
       );
       const graphics = this.add.graphics();
       graphics.fillStyle(color, 1);
-      graphics.fillStar(TILE_SIZE / 2, TILE_SIZE / 2, 5, TILE_SIZE / 4, TILE_SIZE / 6);
+      graphics.beginPath();
+      graphics.moveTo(TILE_SIZE / 2, TILE_SIZE / 6);
+      graphics.lineTo(TILE_SIZE * 5 / 6, TILE_SIZE / 2);
+      graphics.lineTo(TILE_SIZE / 2, TILE_SIZE * 5 / 6);
+      graphics.lineTo(TILE_SIZE / 6, TILE_SIZE / 2);
+      graphics.closePath();
+      graphics.fillPath();
       graphics.generateTexture(`powerup_${x}_${y}`, TILE_SIZE, TILE_SIZE);
       graphics.destroy();
       sprite.setTexture(`powerup_${x}_${y}`);
@@ -141898,7 +141903,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // frontend/src/games/GameManager.ts
+  // src/games/GameManager.ts
   var AVAILABLE_GAMES = {
     "simple-example": SimpleGameExample,
     "tetris": TetrisGame,
@@ -141960,7 +141965,7 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
-  // frontend/src/RoomGameController.ts
+  // src/RoomGameController.ts
   var RoomGameController = class {
     constructor(containerId, socket) {
       this.selectedGameType = null;
