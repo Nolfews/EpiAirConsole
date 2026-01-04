@@ -77849,7 +77849,7 @@ var GameController = (() => {
                   __webpack_require__2(63595);
                   var CONST = __webpack_require__2(8054);
                   var Extend = __webpack_require__2(79291);
-                  var Phaser7 = {
+                  var Phaser8 = {
                     Actions: __webpack_require__2(61061),
                     Animations: __webpack_require__2(60421),
                     BlendModes: __webpack_require__2(10312),
@@ -77885,15 +77885,15 @@ var GameController = (() => {
                     Utils: __webpack_require__2(91799)
                   };
                   if (true) {
-                    Phaser7.Sound = __webpack_require__2(23717);
+                    Phaser8.Sound = __webpack_require__2(23717);
                   }
                   if (false) {
                   }
                   if (false) {
                   }
-                  Phaser7 = Extend(false, Phaser7, CONST);
-                  module2.exports = Phaser7;
-                  __webpack_require__2.g.Phaser = Phaser7;
+                  Phaser8 = Extend(false, Phaser8, CONST);
+                  module2.exports = Phaser8;
+                  __webpack_require__2.g.Phaser = Phaser8;
                 })
               ),
               /***/
@@ -141037,7 +141037,6 @@ ${winner.kills} \xE9limination(s)`,
     { q: "Which instrument has keys, pedals and strings?", choices: ["Guitar", "Piano", "Violin", "Flute"], a: 1 },
     { q: "How many continents are there?", choices: ["5", "6", "7", "8"], a: 2 },
     { q: "What is H2O?", choices: ["Salt", "Water", "Oxygen", "Hydrogen"], a: 1 }
-    // 90 more questions (simple general knowledge) - generated programmatically below
   ];
   (function fillBank() {
     const extras = [];
@@ -141153,7 +141152,7 @@ ${winner.kills} \xE9limination(s)`,
             const answerBoxes = [];
             const answerTexts = [];
             const coords = [{ x: 240, y: 270 }, { x: 560, y: 270 }, { x: 240, y: 390 }, { x: 560, y: 390 }];
-            const BOX_WIDTH = 300;
+            const BOX_WIDTH = 220;
             const BOX_HEIGHT = 64;
             const BOX_RADIUS = 10;
             const TEXT_WRAP = 260;
@@ -141389,13 +141388,495 @@ ${winner.kills} \xE9limination(s)`,
     }
   };
 
+  // src/games/BombermanGame.ts
+  var import_phaser7 = __toESM(require_phaser());
+  var GAME_CONFIG = {
+    name: "Bomberman Battle",
+    description: "Classic Bomberman - Place bombs, destroy walls, eliminate enemies!",
+    minPlayers: 2,
+    maxPlayers: 4
+  };
+  var GRID_SIZE = 15;
+  var TILE_SIZE = 40;
+  var BOMB_TIMER = 3e3;
+  var EXPLOSION_DURATION = 500;
+  var PLAYER_COLORS = [16711680, 65280, 255, 16776960];
+  var SPAWN_POSITIONS = [
+    { x: 1, y: 1 },
+    // Top-left
+    { x: GRID_SIZE - 2, y: 1 },
+    // Top-right
+    { x: 1, y: GRID_SIZE - 2 },
+    // Bottom-left
+    { x: GRID_SIZE - 2, y: GRID_SIZE - 2 }
+    // Bottom-right
+  ];
+  var BombermanScene = class extends import_phaser7.default.Scene {
+    constructor(gameInstance) {
+      super({ key: "BombermanScene" });
+      this.grid = [];
+      this.tiles = [];
+      this.bombs = [];
+      this.powerUps = [];
+      this.players = /* @__PURE__ */ new Map();
+      this.lastInputTime = /* @__PURE__ */ new Map();
+      this.inputCooldown = 50;
+      this.gameOver = false;
+      this.localPlayerId = "";
+      this.gameInstance = gameInstance;
+    }
+    create() {
+      this.cameras.main.setBackgroundColor("#1a1a1a");
+      this.generateMap();
+      this.renderMap();
+      this.spawnPlayers();
+      const uiY = GRID_SIZE * TILE_SIZE + 30;
+      this.add.text(20, uiY, "\u{1F3AE} Bomberman Battle", {
+        fontSize: "24px",
+        color: "#fff",
+        fontFamily: "Arial",
+        fontStyle: "bold"
+      });
+      this.add.text(20, uiY + 35, "Joystick: Move | A: Place Bomb", {
+        fontSize: "16px",
+        color: "#aaa",
+        fontFamily: "Arial"
+      });
+    }
+    generateMap() {
+      for (let y = 0; y < GRID_SIZE; y++) {
+        this.grid[y] = [];
+        for (let x = 0; x < GRID_SIZE; x++) {
+          if (x === 0 || y === 0 || x === GRID_SIZE - 1 || y === GRID_SIZE - 1) {
+            this.grid[y][x] = 1;
+          } else if (x % 2 === 0 && y % 2 === 0) {
+            this.grid[y][x] = 1;
+          } else {
+            this.grid[y][x] = 0;
+          }
+        }
+      }
+      for (let y = 1; y < GRID_SIZE - 1; y++) {
+        for (let x = 1; x < GRID_SIZE - 1; x++) {
+          if (this.grid[y][x] === 0) {
+            const isSpawnZone = x <= 2 && y <= 2 || // Top-left
+            x >= GRID_SIZE - 3 && y <= 2 || // Top-right
+            x <= 2 && y >= GRID_SIZE - 3 || // Bottom-left
+            x >= GRID_SIZE - 3 && y >= GRID_SIZE - 3;
+            if (!isSpawnZone && Math.random() < 0.5) {
+              this.grid[y][x] = 2;
+            }
+          }
+        }
+      }
+    }
+    renderMap() {
+      this.tiles = [];
+      for (let y = 0; y < GRID_SIZE; y++) {
+        this.tiles[y] = [];
+        for (let x = 0; x < GRID_SIZE; x++) {
+          const tile = this.grid[y][x];
+          let color = 2236962;
+          if (tile === 1) {
+            color = 5592405;
+          } else if (tile === 2) {
+            color = 9127187;
+          }
+          const rect = this.add.rectangle(
+            x * TILE_SIZE + TILE_SIZE / 2,
+            y * TILE_SIZE + TILE_SIZE / 2,
+            TILE_SIZE - 2,
+            TILE_SIZE - 2,
+            color
+          );
+          this.tiles[y][x] = rect;
+        }
+      }
+    }
+    spawnPlayers() {
+      let playerIndex = 0;
+      this.gameInstance.getPlayers().forEach((player, playerId) => {
+        if (playerIndex < 4) {
+          const spawn = SPAWN_POSITIONS[playerIndex];
+          const color = PLAYER_COLORS[playerIndex];
+          const bombermanPlayer = {
+            ...player,
+            x: spawn.x,
+            y: spawn.y,
+            bombCount: 0,
+            maxBombs: 1,
+            bombRange: 1,
+            alive: true,
+            color,
+            playerNumber: playerIndex + 1
+          };
+          const sprite = this.add.sprite(
+            spawn.x * TILE_SIZE + TILE_SIZE / 2,
+            spawn.y * TILE_SIZE + TILE_SIZE / 2,
+            ""
+          );
+          sprite.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
+          const graphics = this.add.graphics();
+          graphics.fillStyle(color, 1);
+          graphics.fillCircle(0, 0, (TILE_SIZE - 10) / 2);
+          graphics.generateTexture(`player_${playerId}`, TILE_SIZE - 10, TILE_SIZE - 10);
+          graphics.destroy();
+          sprite.setTexture(`player_${playerId}`);
+          bombermanPlayer.sprite = sprite;
+          this.add.text(
+            spawn.x * TILE_SIZE + TILE_SIZE / 2,
+            spawn.y * TILE_SIZE + TILE_SIZE / 2,
+            `${playerIndex + 1}`,
+            {
+              fontSize: "20px",
+              color: "#fff",
+              fontStyle: "bold"
+            }
+          ).setOrigin(0.5);
+          this.players.set(playerId, bombermanPlayer);
+          playerIndex++;
+        }
+      });
+    }
+    setLocalPlayerId(playerId) {
+      this.localPlayerId = playerId;
+    }
+    handleInput(playerId, action, data) {
+      if (this.gameOver) return;
+      const player = this.players.get(playerId);
+      if (!player || !player.alive) return;
+      const now = Date.now();
+      const lastTime = this.lastInputTime.get(playerId) || 0;
+      if (action === "action" && now - lastTime >= 100) {
+        this.placeBomb(player);
+        this.lastInputTime.set(playerId, now);
+      } else if (action === "joystick" && now - lastTime >= this.inputCooldown) {
+        const { joystickX, joystickY } = data;
+        this.movePlayer(player, joystickX, joystickY);
+        this.lastInputTime.set(playerId, now);
+      }
+    }
+    movePlayer(player, jx, jy) {
+      let newX = player.x;
+      let newY = player.y;
+      const threshold = 0.5;
+      if (Math.abs(jx) > Math.abs(jy)) {
+        if (jx > threshold) newX++;
+        else if (jx < -threshold) newX--;
+      } else {
+        if (jy > threshold) newY++;
+        else if (jy < -threshold) newY--;
+      }
+      if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE) {
+        if (this.grid[newY][newX] === 0) {
+          const hasBomb = this.bombs.some((b) => b.gridX === newX && b.gridY === newY);
+          if (!hasBomb) {
+            player.x = newX;
+            player.y = newY;
+            if (player.sprite) {
+              player.sprite.setPosition(
+                newX * TILE_SIZE + TILE_SIZE / 2,
+                newY * TILE_SIZE + TILE_SIZE / 2
+              );
+            }
+            this.checkPowerUpPickup(player);
+          }
+        }
+      }
+    }
+    placeBomb(player) {
+      if (player.bombCount >= player.maxBombs) return;
+      const existingBomb = this.bombs.find((b) => b.gridX === player.x && b.gridY === player.y);
+      if (existingBomb) return;
+      const bombSprite = this.add.sprite(
+        player.x * TILE_SIZE + TILE_SIZE / 2,
+        player.y * TILE_SIZE + TILE_SIZE / 2,
+        ""
+      );
+      const graphics = this.add.graphics();
+      graphics.fillStyle(0, 1);
+      graphics.fillCircle(TILE_SIZE / 2, TILE_SIZE / 2, TILE_SIZE / 3);
+      graphics.fillStyle(16711680, 1);
+      graphics.fillRect(TILE_SIZE / 2 - 2, TILE_SIZE / 2 - TILE_SIZE / 2, 4, TILE_SIZE / 3);
+      graphics.generateTexture("bomb", TILE_SIZE, TILE_SIZE);
+      graphics.destroy();
+      bombSprite.setTexture("bomb");
+      const bomb = {
+        sprite: bombSprite,
+        gridX: player.x,
+        gridY: player.y,
+        range: player.bombRange,
+        timer: BOMB_TIMER,
+        playerId: player.id
+      };
+      this.bombs.push(bomb);
+      player.bombCount++;
+      this.tweens.add({
+        targets: bombSprite,
+        scale: { from: 1, to: 1.2 },
+        duration: 300,
+        yoyo: true,
+        repeat: -1
+      });
+    }
+    update(time, delta) {
+      if (this.gameOver) return;
+      for (let i = this.bombs.length - 1; i >= 0; i--) {
+        const bomb = this.bombs[i];
+        bomb.timer -= delta;
+        if (bomb.timer <= 0) {
+          this.explodeBomb(bomb);
+          this.bombs.splice(i, 1);
+        }
+      }
+      this.checkWinCondition();
+    }
+    explodeBomb(bomb) {
+      bomb.sprite.destroy();
+      const player = this.players.get(bomb.playerId);
+      if (player) {
+        player.bombCount--;
+      }
+      const explosionCells = [{ x: bomb.gridX, y: bomb.gridY }];
+      const directions = [
+        { dx: 1, dy: 0 },
+        { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 0, dy: -1 }
+      ];
+      for (const dir of directions) {
+        for (let i = 1; i <= bomb.range; i++) {
+          const x = bomb.gridX + dir.dx * i;
+          const y = bomb.gridY + dir.dy * i;
+          if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) break;
+          const tile = this.grid[y][x];
+          if (tile === 1) {
+            break;
+          }
+          explosionCells.push({ x, y });
+          if (tile === 2) {
+            this.grid[y][x] = 0;
+            this.tiles[y][x].setFillStyle(2236962);
+            if (Math.random() < 0.2) {
+              this.spawnPowerUp(x, y);
+            }
+            break;
+          }
+        }
+      }
+      this.showExplosion(explosionCells);
+      this.players.forEach((player2) => {
+        if (player2.alive) {
+          const hit = explosionCells.some((cell) => cell.x === player2.x && cell.y === player2.y);
+          if (hit) {
+            this.killPlayer(player2);
+          }
+        }
+      });
+      this.bombs.forEach((otherBomb) => {
+        const hit = explosionCells.some((cell) => cell.x === otherBomb.gridX && cell.y === otherBomb.gridY);
+        if (hit) {
+          otherBomb.timer = 0;
+        }
+      });
+    }
+    showExplosion(cells) {
+      cells.forEach((cell) => {
+        const explosion = this.add.rectangle(
+          cell.x * TILE_SIZE + TILE_SIZE / 2,
+          cell.y * TILE_SIZE + TILE_SIZE / 2,
+          TILE_SIZE - 2,
+          TILE_SIZE - 2,
+          16737792,
+          0.8
+        );
+        this.tweens.add({
+          targets: explosion,
+          alpha: 0,
+          duration: EXPLOSION_DURATION,
+          onComplete: () => explosion.destroy()
+        });
+      });
+    }
+    spawnPowerUp(x, y) {
+      const type = Math.random() < 0.5 ? "bomb" : "range";
+      const color = type === "bomb" ? 65535 : 16711935;
+      const sprite = this.add.sprite(
+        x * TILE_SIZE + TILE_SIZE / 2,
+        y * TILE_SIZE + TILE_SIZE / 2,
+        ""
+      );
+      const graphics = this.add.graphics();
+      graphics.fillStyle(color, 1);
+      graphics.fillStar(TILE_SIZE / 2, TILE_SIZE / 2, 5, TILE_SIZE / 4, TILE_SIZE / 6);
+      graphics.generateTexture(`powerup_${x}_${y}`, TILE_SIZE, TILE_SIZE);
+      graphics.destroy();
+      sprite.setTexture(`powerup_${x}_${y}`);
+      this.tweens.add({
+        targets: sprite,
+        angle: 360,
+        duration: 2e3,
+        repeat: -1
+      });
+      this.powerUps.push({ sprite, gridX: x, gridY: y, type });
+    }
+    checkPowerUpPickup(player) {
+      for (let i = this.powerUps.length - 1; i >= 0; i--) {
+        const powerUp = this.powerUps[i];
+        if (powerUp.gridX === player.x && powerUp.gridY === player.y) {
+          if (powerUp.type === "bomb") {
+            player.maxBombs++;
+          } else if (powerUp.type === "range") {
+            player.bombRange++;
+          }
+          powerUp.sprite.destroy();
+          this.powerUps.splice(i, 1);
+        }
+      }
+    }
+    killPlayer(player) {
+      player.alive = false;
+      if (player.sprite) {
+        this.tweens.add({
+          targets: player.sprite,
+          alpha: 0,
+          scale: 0,
+          duration: 500,
+          onComplete: () => player.sprite?.destroy()
+        });
+      }
+    }
+    checkWinCondition() {
+      const alivePlayers = Array.from(this.players.values()).filter((p) => p.alive);
+      if (alivePlayers.length === 1) {
+        this.endGame(alivePlayers[0]);
+      } else if (alivePlayers.length === 0) {
+        this.endGame(null);
+      }
+    }
+    endGame(winner) {
+      if (this.gameOver) return;
+      this.gameOver = true;
+      const localPlayer = this.players.get(this.localPlayerId);
+      if (localPlayer) {
+        const won = winner?.id === this.localPlayerId;
+        this.saveGameResult(won);
+      }
+      const centerX = GRID_SIZE * TILE_SIZE / 2;
+      const centerY = GRID_SIZE * TILE_SIZE / 2;
+      const overlay = this.add.rectangle(
+        centerX,
+        centerY,
+        GRID_SIZE * TILE_SIZE,
+        GRID_SIZE * TILE_SIZE,
+        0,
+        0.7
+      );
+      let message = "Draw!";
+      if (winner) {
+        message = `Player ${winner.playerNumber} Wins! \u{1F389}`;
+      }
+      this.winnerText = this.add.text(centerX, centerY - 50, message, {
+        fontSize: "48px",
+        color: winner ? `#${winner.color.toString(16).padStart(6, "0")}` : "#ffffff",
+        fontFamily: "Arial",
+        fontStyle: "bold"
+      }).setOrigin(0.5);
+      this.add.text(centerX, centerY + 30, "Game Over", {
+        fontSize: "32px",
+        color: "#aaa",
+        fontFamily: "Arial"
+      }).setOrigin(0.5);
+    }
+    async saveGameResult(won) {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        await fetch("/api/games/save", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            gameName: "bomberman",
+            result: won ? "win" : "loss",
+            score: 0,
+            duration: 0
+          })
+        });
+        await fetch("/api/achievements/check", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          }
+        });
+      } catch (error) {
+        console.error("Failed to save game result:", error);
+      }
+    }
+  };
+  var BombermanGame = class extends BaseGame {
+    constructor(containerId) {
+      super(containerId, GAME_CONFIG);
+    }
+    createPhaserConfig() {
+      this.scene = new BombermanScene(this);
+      return {
+        type: import_phaser7.default.AUTO,
+        parent: this.containerId,
+        width: GRID_SIZE * TILE_SIZE,
+        height: GRID_SIZE * TILE_SIZE + 80,
+        backgroundColor: "#1a1a1a",
+        scene: this.scene,
+        physics: {
+          default: "arcade",
+          arcade: {
+            gravity: { x: 0, y: 0 },
+            debug: false
+          }
+        }
+      };
+    }
+    handlePlayerInput(playerId, action, data) {
+      if (this.scene) {
+        this.scene.handleInput(playerId, action, data);
+      }
+    }
+    onPlayerAdded(player) {
+      console.log("Player added to Bomberman:", player);
+    }
+    onPlayerRemoved(player) {
+      console.log("Player removed from Bomberman:", player);
+    }
+    setLocalPlayerId(playerId) {
+      if (this.scene) {
+        this.scene.setLocalPlayerId(playerId);
+      }
+    }
+    getPlayers() {
+      return this.players;
+    }
+    destroy() {
+      if (this.game) {
+        this.game.destroy(true);
+        this.game = null;
+      }
+    }
+    static getConfig() {
+      return GAME_CONFIG;
+    }
+  };
+
   // src/games/GameManager.ts
   var AVAILABLE_GAMES = {
     "simple-example": SimpleGameExample,
     "tetris": TetrisGame,
     "tank-battle": TankBattleGame,
     "brick-breaker": BrickBreakerGame,
-    "quiz-battle": KahootGame
+    "quiz-battle": KahootGame,
+    "bomberman": BombermanGame
   };
   var GameManager = class {
     constructor(containerId) {
