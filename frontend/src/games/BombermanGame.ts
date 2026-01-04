@@ -449,7 +449,14 @@ class BombermanScene extends Phaser.Scene {
 
     const graphics = this.add.graphics();
     graphics.fillStyle(color, 1);
-    graphics.fillStar(TILE_SIZE / 2, TILE_SIZE / 2, 5, TILE_SIZE / 4, TILE_SIZE / 6);
+
+    graphics.beginPath();
+    graphics.moveTo(TILE_SIZE / 2, TILE_SIZE / 6);
+    graphics.lineTo(TILE_SIZE * 5/6, TILE_SIZE / 2);
+    graphics.lineTo(TILE_SIZE / 2, TILE_SIZE * 5/6);
+    graphics.lineTo(TILE_SIZE / 6, TILE_SIZE / 2);
+    graphics.closePath();
+    graphics.fillPath();
     graphics.generateTexture(`powerup_${x}_${y}`, TILE_SIZE, TILE_SIZE);
     graphics.destroy();
 
